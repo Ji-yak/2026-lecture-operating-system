@@ -1,92 +1,92 @@
-# Week 3 과제: trace 시스템 콜 추가
+# Week 3 Homework: Adding the trace System Call
 
-> **마감**: 다음 수업 전까지
-> **기반**: MIT 6.1810 Lab: System Calls
-> **난이도**: 필수(trace) + 보너스(sysinfo)
-
----
-
-## 개요
-
-이번 과제에서는 xv6에 새로운 시스템 콜 `trace(int mask)`를 추가합니다.
-이 과정을 통해 시스템 콜이 어떻게 등록되고, 유저 프로그램에서 커널까지 어떤 경로로 전달되는지를 직접 체험합니다.
+> **Deadline**: Before the next class
+> **Based on**: MIT 6.1810 Lab: System Calls
+> **Difficulty**: Required (trace) + Bonus (sysinfo)
 
 ---
 
-## 과제 1: `trace` 시스템 콜 (필수)
+## Overview
 
-### 기능 명세
+In this assignment, you will add a new system call `trace(int mask)` to xv6.
+Through this process, you will experience firsthand how system calls are registered and what path they take from user programs to the kernel.
 
-`trace(int mask)` 시스템 콜은 호출한 프로세스에 대해 시스템 콜 추적(tracing)을 활성화합니다.
+---
 
-- **mask**: 추적할 시스템 콜의 비트마스크. 시스템 콜 번호 `n`을 추적하려면 `(1 << n)` 비트를 설정한다.
-- 추적이 활성화된 시스템 콜이 호출될 때마다, 커널은 다음 형식으로 한 줄을 출력한다:
+## Assignment 1: `trace` System Call (Required)
+
+### Functional Specification
+
+The `trace(int mask)` system call enables system call tracing for the calling process.
+
+- **mask**: A bitmask of the system calls to trace. To trace system call number `n`, set bit `(1 << n)`.
+- Each time a traced system call is invoked, the kernel prints a line in the following format:
 
   ```
   <pid>: syscall <syscall_name> -> <return_value>
   ```
 
-  예시:
+  Example:
   ```
   3: syscall fork -> 4
   4: syscall write -> 1
   ```
 
-- `fork()`로 생성된 자식 프로세스는 부모의 trace mask를 **상속**한다.
-- `trace(0)`을 호출하면 추적을 비활성화한다.
+- Child processes created by `fork()` **inherit** the parent's trace mask.
+- Calling `trace(0)` disables tracing.
 
-### 동작 예시
+### Usage Example
 
 ```c
-// trace(1 << SYS_fork)를 호출하면 fork 시스템 콜을 추적
-// fork가 호출될 때마다 로그 출력
+// Calling trace(1 << SYS_fork) traces the fork system call
+// A log is printed each time fork is called
 
 $ trace 1 fork    // mask = (1 << SYS_fork) = 2
 3: syscall fork -> 4
 
 $ trace 5 read write  // mask = (1<<SYS_read)|(1<<SYS_write) = 0x10020
-// read, write 호출 시마다 로그 출력
+// A log is printed each time read or write is called
 ```
 
 ---
 
-## 단계별 구현 가이드
+## Step-by-Step Implementation Guide
 
-### 수정해야 할 파일 목록
+### List of Files to Modify
 
-| 파일 | 수정 내용 |
-|------|-----------|
-| `kernel/syscall.h` | `SYS_trace` 번호 추가 (22번) |
-| `user/usys.pl` | `trace` 엔트리 추가 |
-| `user/user.h` | `trace()` 함수 선언 추가 |
-| `kernel/proc.h` | `struct proc`에 `trace_mask` 필드 추가 |
-| `kernel/sysproc.c` | `sys_trace()` 함수 구현 |
-| `kernel/syscall.c` | syscalls 테이블에 추가, `syscall()`에 trace 로직 추가 |
-| `kernel/proc.c` | `kfork()`에서 `trace_mask` 복사 |
-| `Makefile` | 테스트 프로그램을 UPROGS에 추가 (선택) |
+| File | Modification |
+|------|-------------|
+| `kernel/syscall.h` | Add `SYS_trace` number (22) |
+| `user/usys.pl` | Add `trace` entry |
+| `user/user.h` | Add `trace()` function declaration |
+| `kernel/proc.h` | Add `trace_mask` field to `struct proc` |
+| `kernel/sysproc.c` | Implement `sys_trace()` function |
+| `kernel/syscall.c` | Add to syscalls table, add trace logic to `syscall()` |
+| `kernel/proc.c` | Copy `trace_mask` in `kfork()` |
+| `Makefile` | Add test program to UPROGS (optional) |
 
-### Step 1: 시스템 콜 번호 등록
+### Step 1: Register the System Call Number
 
-`kernel/syscall.h`에 새 시스템 콜 번호를 추가합니다.
+Add the new system call number to `kernel/syscall.h`.
 
 ```c
 // kernel/syscall.h
-// 기존 마지막 줄:
+// Last existing line:
 #define SYS_close  21
 
-// 추가:
+// Add:
 #define SYS_trace  22
 ```
 
-### Step 2: 유저 공간 인터페이스
+### Step 2: User Space Interface
 
-**`user/usys.pl`** 파일 끝에 엔트리를 추가합니다:
+Add an entry at the end of the **`user/usys.pl`** file:
 
 ```perl
 entry("trace");
 ```
 
-이렇게 하면 빌드 시 `usys.S`에 다음과 같은 어셈블리가 생성됩니다:
+This will cause the build to generate the following assembly in `usys.S`:
 
 ```asm
 .global trace
@@ -96,48 +96,48 @@ trace:
  ret
 ```
 
-**`user/user.h`**에 함수 선언을 추가합니다:
+Add a function declaration to **`user/user.h`**:
 
 ```c
-// system calls 섹션에 추가
+// Add to the system calls section
 int trace(int);
 ```
 
-### Step 3: 프로세스 구조체에 필드 추가
+### Step 3: Add a Field to the Process Structure
 
-`kernel/proc.h`의 `struct proc`에 trace mask를 저장할 필드를 추가합니다.
+Add a field to store the trace mask in `struct proc` in `kernel/proc.h`.
 
 ```c
 struct proc {
-  // ... 기존 필드들 ...
+  // ... existing fields ...
   char name[16];               // Process name (debugging)
-  int trace_mask;              // Trace syscall mask (추가)
+  int trace_mask;              // Trace syscall mask (added)
 };
 ```
 
-### Step 4: `sys_trace()` 구현
+### Step 4: Implement `sys_trace()`
 
-`kernel/sysproc.c`에 `sys_trace()` 함수를 구현합니다.
+Implement the `sys_trace()` function in `kernel/sysproc.c`.
 
-이 함수는:
-1. 첫 번째 인자 (mask)를 읽어온다 (`argint()` 사용)
-2. 현재 프로세스의 `trace_mask` 필드에 저장한다
+This function should:
+1. Read the first argument (mask) using `argint()`
+2. Store it in the current process's `trace_mask` field
 
 ```c
 uint64
 sys_trace(void)
 {
   // TODO:
-  // 1. argint()로 첫 번째 인자(mask)를 읽어온다
-  // 2. myproc()->trace_mask에 저장한다
-  // 3. 성공 시 0을 반환한다
+  // 1. Read the first argument (mask) using argint()
+  // 2. Store it in myproc()->trace_mask
+  // 3. Return 0 on success
 }
 ```
 
-**힌트**: `sys_kill()` 함수를 참고하세요. `argint()`로 인자를 읽는 패턴이 동일합니다.
+**Hint**: Refer to the `sys_kill()` function. The pattern for reading arguments with `argint()` is the same.
 
 ```c
-// 참고: kernel/sysproc.c의 sys_kill()
+// Reference: sys_kill() in kernel/sysproc.c
 uint64
 sys_kill(void)
 {
@@ -147,30 +147,30 @@ sys_kill(void)
 }
 ```
 
-### Step 5: syscall 테이블과 디스패치 로직 수정
+### Step 5: Modify the syscall Table and Dispatch Logic
 
-**`kernel/syscall.c`**에서 세 가지를 수정합니다.
+Modify three things in **`kernel/syscall.c`**.
 
-**(a)** 함수 프로토타입 추가:
+**(a)** Add the function prototype:
 
 ```c
 extern uint64 sys_trace(void);
 ```
 
-**(b)** `syscalls[]` 배열에 항목 추가:
+**(b)** Add an entry to the `syscalls[]` array:
 
 ```c
 static uint64 (*syscalls[])(void) = {
-  // ... 기존 항목들 ...
+  // ... existing entries ...
   [SYS_close]   sys_close,
-  [SYS_trace]   sys_trace,   // 추가
+  [SYS_trace]   sys_trace,   // added
 };
 ```
 
-**(c)** 시스템 콜 이름 배열 추가 및 `syscall()` 함수에 trace 로직 추가:
+**(c)** Add a syscall name array and add trace logic to the `syscall()` function:
 
 ```c
-// syscall 이름 문자열 배열 (trace 출력용)
+// Syscall name string array (for trace output)
 static char *syscall_names[] = {
   [SYS_fork]    "fork",
   [SYS_exit]    "exit",
@@ -206,9 +206,9 @@ syscall(void)
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
 
-    // TODO: trace 로직 추가
-    // p->trace_mask의 num번째 비트가 설정되어 있으면
-    // printf로 "<pid>: syscall <name> -> <return_value>" 출력
+    // TODO: Add trace logic
+    // If bit number `num` is set in p->trace_mask,
+    // print "<pid>: syscall <name> -> <return_value>" using printf
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
@@ -217,14 +217,14 @@ syscall(void)
 }
 ```
 
-**힌트**:
-- 비트마스크 검사는 `(p->trace_mask & (1 << num))` 연산을 사용합니다.
-- `p->trapframe->a0`는 `uint64` 타입이므로, `printf`의 `%d`와 함께 쓸 때 `(int)`로 캐스팅해야 합니다.
-  (`-Werror` 플래그 때문에 타입 불일치 경고가 컴파일 에러로 처리됩니다.)
+**Hints**:
+- The bitmask check uses the expression `(p->trace_mask & (1 << num))`.
+- `p->trapframe->a0` is of type `uint64`, so it should be cast to `(int)` when used with `printf`'s `%d`.
+  (The `-Werror` flag causes type mismatch warnings to be treated as compilation errors.)
 
-### Step 6: `fork()`에서 trace_mask 상속
+### Step 6: Inherit trace_mask in `fork()`
 
-`kernel/proc.c`의 `kfork()` 함수에서, 자식 프로세스가 부모의 `trace_mask`를 상속하도록 한 줄을 추가합니다.
+In the `kfork()` function in `kernel/proc.c`, add a line so that the child process inherits the parent's `trace_mask`.
 
 ```c
 int
@@ -239,7 +239,7 @@ kfork(void)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
-  // TODO: trace_mask를 부모에서 자식으로 복사
+  // TODO: Copy trace_mask from parent to child
   // np->trace_mask = ???;
 
   // increment reference counts on open file descriptors.
@@ -247,38 +247,38 @@ kfork(void)
 }
 ```
 
-### Step 7: 프로세스 초기화 시 trace_mask 초기화
+### Step 7: Initialize trace_mask on Process Initialization
 
-`kernel/proc.c`의 `freeproc()` 함수에서 `trace_mask`를 0으로 초기화해야 합니다.
+The `trace_mask` must be initialized to 0 in the `freeproc()` function in `kernel/proc.c`.
 
 ```c
 static void
 freeproc(struct proc *p)
 {
-  // ... 기존 코드 ...
+  // ... existing code ...
   p->state = UNUSED;
-  // TODO: p->trace_mask = 0; 추가
+  // TODO: Add p->trace_mask = 0;
 }
 ```
 
 ---
 
-## 테스트
+## Testing
 
-### 테스트 프로그램
+### Test Program
 
-`trace_test.c`를 `user/` 디렉토리에 복사하고 `Makefile`의 `UPROGS`에 추가한 뒤 테스트합니다.
-(과제 배포 파일에 `trace_test.c`가 포함되어 있습니다.)
+Copy `trace_test.c` to the `user/` directory, add it to `UPROGS` in the `Makefile`, and run the tests.
+(`trace_test.c` is included in the assignment distribution files.)
 
 ```bash
-# xv6 빌드 및 실행
+# Build and run xv6
 make clean && make qemu
 
-# xv6 셸에서 테스트
+# Test in the xv6 shell
 $ trace_test
 ```
 
-### 예상 출력
+### Expected Output
 
 ```
 === Test 1: trace fork ===
@@ -286,44 +286,44 @@ $ trace_test
 Test 1 PASSED
 
 === Test 2: trace read/write ===
-(write/read trace 출력이 나타남)
+(write/read trace output appears)
 Test 2 PASSED
 
 === Test 3: trace multiple syscalls ===
-(여러 시스템 콜의 trace 출력)
+(trace output for multiple system calls)
 Test 3 PASSED
 
 === Test 4: trace inheritance ===
-(자식 프로세스에서도 trace 출력)
+(trace output from child processes as well)
 Test 4 PASSED
 
 All tests passed!
 ```
 
-### 수동 테스트
+### Manual Testing
 
-xv6 셸에서 직접 확인할 수도 있습니다:
+You can also verify directly in the xv6 shell:
 
 ```bash
-# 간단한 프로그램 작성 후 테스트
+# Write a simple program and test it
 $ trace_test
 ```
 
 ---
 
-## 제출 방법
+## Submission Method
 
-다음 중 하나로 제출:
+Submit using one of the following:
 
-**방법 1: patch 파일**
+**Method 1: patch file**
 ```bash
 cd xv6-riscv
 git diff > trace.patch
 ```
 
-**방법 2: 수정된 파일들**
+**Method 2: Modified files**
 
-다음 파일들을 제출:
+Submit the following files:
 - `kernel/syscall.h`
 - `kernel/syscall.c`
 - `kernel/sysproc.c`
@@ -334,56 +334,56 @@ git diff > trace.patch
 
 ---
 
-## 과제 2: `sysinfo` 시스템 콜 (보너스, +10점)
+## Assignment 2: `sysinfo` System Call (Bonus, +10 points)
 
-### 기능 명세
+### Functional Specification
 
-`sysinfo(struct sysinfo *)` 시스템 콜을 추가합니다. 이 시스템 콜은 시스템의 현재 상태 정보를 반환합니다.
+Add a `sysinfo(struct sysinfo *)` system call. This system call returns information about the current system state.
 
-### 구현할 내용
+### What to Implement
 
-1. `kernel/sysinfo.h` 파일 생성:
+1. Create the `kernel/sysinfo.h` file:
 
 ```c
 struct sysinfo {
-  uint64 freemem;   // 사용 가능한 메모리 (바이트)
-  uint64 nproc;     // 활성 프로세스 수 (state != UNUSED)
+  uint64 freemem;   // Available memory (bytes)
+  uint64 nproc;     // Number of active processes (state != UNUSED)
 };
 ```
 
-2. `SYS_sysinfo` 번호를 23으로 등록
+2. Register `SYS_sysinfo` as number 23
 
-3. 필요한 헬퍼 함수 구현:
-   - `kernel/kalloc.c`에 `freemem_count()`: free list를 순회하며 빈 페이지 수 * PGSIZE 반환
-   - `kernel/proc.c`에 `proc_count()`: `proc[]` 배열을 순회하며 UNUSED가 아닌 프로세스 수 반환
+3. Implement the required helper functions:
+   - `freemem_count()` in `kernel/kalloc.c`: Traverse the free list and return the number of free pages * PGSIZE
+   - `proc_count()` in `kernel/proc.c`: Traverse the `proc[]` array and return the count of processes that are not UNUSED
 
-4. `kernel/sysproc.c`에 `sys_sysinfo()` 구현:
-   - 유저 공간 포인터로 `struct sysinfo` 데이터를 복사 (`copyout()` 사용)
+4. Implement `sys_sysinfo()` in `kernel/sysproc.c`:
+   - Copy the `struct sysinfo` data to the user space pointer (using `copyout()`)
 
-### 힌트
+### Hints
 
-- `copyout()`을 사용하여 커널 데이터를 유저 공간으로 복사합니다
-- `argaddr()`로 유저 포인터를 받아옵니다
-- `sys_fstat()`의 구현 패턴을 참고하세요
-
----
-
-## 채점 기준
-
-| 항목 | 배점 |
-|------|------|
-| `trace` 시스템 콜이 정상 등록됨 (컴파일 성공) | 20점 |
-| `sys_trace()` 구현 및 mask 저장 | 20점 |
-| `syscall()`에서 trace 출력이 올바른 형식으로 나옴 | 30점 |
-| `fork()` 시 trace_mask 상속이 동작 | 20점 |
-| 코드 스타일 및 주석 | 10점 |
-| (보너스) `sysinfo` 시스템 콜 | +10점 |
+- Use `copyout()` to copy kernel data to user space
+- Use `argaddr()` to receive the user pointer
+- Refer to the implementation pattern of `sys_fstat()`
 
 ---
 
-## 참고 자료
+## Grading Criteria
 
-- xv6 교재 Chapter 2: Operating System Organization
-- xv6 교재 Chapter 4: Traps and System Calls
+| Item | Score |
+|------|-------|
+| `trace` system call is properly registered (compilation success) | 20 points |
+| `sys_trace()` implementation and mask storage | 20 points |
+| `syscall()` produces trace output in the correct format | 30 points |
+| trace_mask inheritance works on `fork()` | 20 points |
+| Code style and comments | 10 points |
+| (Bonus) `sysinfo` system call | +10 points |
+
+---
+
+## References
+
+- xv6 textbook Chapter 2: Operating System Organization
+- xv6 textbook Chapter 4: Traps and System Calls
 - [MIT 6.1810 Lab: System Calls](https://pdos.csail.mit.edu/6.828/2024/labs/syscall.html)
-- 수업 실습 (Week 3 Lab)에서 분석한 시스템 콜 호출 경로
+- System call path analysis from the class lab (Week 3 Lab)

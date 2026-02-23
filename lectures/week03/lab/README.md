@@ -1,23 +1,23 @@
-# Week 3 Lab: Process 2 - xv6 내부 구조 탐색
+# Week 3 Lab: Process 2 - Exploring the xv6 Internals
 
-> **소요 시간**: 약 50분
-> **선수 지식**: C 언어 기초, 프로세스 개념 (Week 2)
-> **참고 교재**: xv6 textbook Ch 2 (OS Organization), Ch 4 (Traps and System Calls)
-
----
-
-## 학습 목표
-
-1. xv6 운영체제의 소스 코드 구조를 이해한다.
-2. 사용자 프로그램이 시스템 콜을 호출했을 때 커널까지 도달하는 전체 경로를 추적한다.
-3. 프로세스를 표현하는 `struct proc`의 각 필드를 분석한다.
-4. `fork()` 시스템 콜의 커널 구현을 읽고 동작 원리를 이해한다.
+> **Duration**: approximately 50 minutes
+> **Prerequisites**: C language basics, process concepts (Week 2)
+> **Reference textbook**: xv6 textbook Ch 2 (OS Organization), Ch 4 (Traps and System Calls)
 
 ---
 
-## 실습 0: 환경 확인 (3분)
+## Learning Objectives
 
-xv6를 빌드하고 실행할 수 있는지 확인합니다.
+1. Understand the source code structure of the xv6 operating system.
+2. Trace the full path from a user program's system call invocation to the kernel.
+3. Analyze each field of `struct proc`, which represents a process.
+4. Read the kernel implementation of the `fork()` system call and understand how it works.
+
+---
+
+## Lab 0: Environment Check (3 min)
+
+Verify that you can build and run xv6.
 
 ```bash
 cd xv6-riscv
@@ -25,62 +25,62 @@ make clean
 make qemu
 ```
 
-QEMU가 실행되고 xv6 셸 프롬프트(`$`)가 나타나면 정상입니다.
-종료: `Ctrl-a` 를 누른 뒤 `x` 를 누릅니다.
+If QEMU starts and the xv6 shell prompt (`$`) appears, everything is working correctly.
+To exit: press `Ctrl-a`, then press `x`.
 
 ---
 
-## 실습 1: xv6 소스 코드 구조 살펴보기 (7분)
+## Lab 1: Exploring the xv6 Source Code Structure (7 min)
 
-### 1.1 전체 디렉토리 구조
+### 1.1 Overall Directory Structure
 
-xv6 저장소의 주요 디렉토리는 다음과 같습니다.
+The main directories in the xv6 repository are as follows.
 
-| 디렉토리 | 설명 |
-|----------|------|
-| `kernel/` | 커널 소스 코드 (프로세스 관리, 메모리 관리, 파일 시스템, 트랩 처리 등) |
-| `user/`   | 사용자 프로그램 소스 코드 (셸, cat, ls 등) |
-| `mkfs/`   | 파일 시스템 이미지 생성 도구 |
+| Directory | Description |
+|-----------|-------------|
+| `kernel/` | Kernel source code (process management, memory management, file system, trap handling, etc.) |
+| `user/`   | User program source code (shell, cat, ls, etc.) |
+| `mkfs/`   | File system image generation tool |
 
-### 1.2 kernel/ 디렉토리의 주요 파일
+### 1.2 Key Files in the kernel/ Directory
 
 ```
 kernel/
-  ├── proc.h          # struct proc 정의 (프로세스 상태)
-  ├── proc.c          # 프로세스 관리 (fork, exit, wait, scheduler)
-  ├── syscall.h       # 시스템 콜 번호 정의
-  ├── syscall.c       # 시스템 콜 디스패치 (syscall() 함수)
-  ├── sysproc.c       # 프로세스 관련 시스템 콜 구현 (fork, exit, wait 등)
-  ├── sysfile.c       # 파일 관련 시스템 콜 구현 (open, read, write 등)
-  ├── trap.c          # 트랩/인터럽트 처리 (usertrap, kerneltrap)
-  ├── trampoline.S    # 유저↔커널 모드 전환 어셈블리
-  ├── vm.c            # 가상 메모리 관리
-  ├── kalloc.c        # 물리 메모리 할당 (페이지 단위)
-  ├── spinlock.c      # 스핀락 구현
-  ├── main.c          # 커널 부팅 진입점
-  ├── param.h         # 시스템 파라미터 (NPROC, NOFILE 등)
-  ├── defs.h          # 커널 함수 선언 모음
-  ├── riscv.h         # RISC-V 관련 레지스터/매크로
-  └── memlayout.h     # 메모리 레이아웃 상수
+  ├── proc.h          # struct proc definition (process state)
+  ├── proc.c          # Process management (fork, exit, wait, scheduler)
+  ├── syscall.h       # System call number definitions
+  ├── syscall.c       # System call dispatch (syscall() function)
+  ├── sysproc.c       # Process-related system call implementations (fork, exit, wait, etc.)
+  ├── sysfile.c       # File-related system call implementations (open, read, write, etc.)
+  ├── trap.c          # Trap/interrupt handling (usertrap, kerneltrap)
+  ├── trampoline.S    # User<->kernel mode transition assembly
+  ├── vm.c            # Virtual memory management
+  ├── kalloc.c        # Physical memory allocation (page granularity)
+  ├── spinlock.c      # Spinlock implementation
+  ├── main.c          # Kernel boot entry point
+  ├── param.h         # System parameters (NPROC, NOFILE, etc.)
+  ├── defs.h          # Collection of kernel function declarations
+  ├── riscv.h         # RISC-V related registers/macros
+  └── memlayout.h     # Memory layout constants
 ```
 
-### 1.3 user/ 디렉토리의 주요 파일
+### 1.3 Key Files in the user/ Directory
 
 ```
 user/
-  ├── user.h          # 사용자 프로그램용 시스템 콜 선언
-  ├── usys.pl         # 시스템 콜 스텁 생성 스크립트 (Perl)
-  ├── ulib.c          # 사용자 라이브러리 (strcmp, strlen 등)
-  ├── printf.c        # 사용자 printf 구현
-  ├── umalloc.c       # 사용자 malloc/free 구현
-  ├── sh.c            # 셸
-  ├── cat.c           # cat 명령어
-  ├── ls.c            # ls 명령어
-  ├── echo.c          # echo 명령어
-  └── ...             # 기타 유틸리티
+  ├── user.h          # System call declarations for user programs
+  ├── usys.pl         # System call stub generation script (Perl)
+  ├── ulib.c          # User library (strcmp, strlen, etc.)
+  ├── printf.c        # User printf implementation
+  ├── umalloc.c       # User malloc/free implementation
+  ├── sh.c            # Shell
+  ├── cat.c           # cat command
+  ├── ls.c            # ls command
+  ├── echo.c          # echo command
+  └── ...             # Other utilities
 ```
 
-### [질문] 다음 파일 각각이 어떤 역할을 하는지 한 문장으로 적어보세요.
+### [Question] Describe the role of each of the following files in one sentence.
 
 1. `kernel/proc.h` -
 2. `kernel/syscall.c` -
@@ -89,16 +89,16 @@ user/
 
 ---
 
-## 실습 2: 시스템 콜 호출 경로 추적 (20분)
+## Lab 2: Tracing the System Call Path (20 min)
 
-사용자 프로그램에서 `fork()`를 호출하면 어떤 일이 일어나는지, 소스 코드를 따라가며 추적합니다.
+We will trace what happens when a user program calls `fork()`, following the source code along the way.
 
-### 2.1 사용자 프로그램에서의 호출
+### 2.1 The Call from User Space
 
-사용자 프로그램은 `user/user.h`에 선언된 함수를 호출합니다.
+User programs call functions declared in `user/user.h`.
 
 ```c
-// user/user.h (발췌)
+// user/user.h (excerpt)
 
 // system calls
 int fork(void);
@@ -111,12 +111,12 @@ int close(int);
 int kill(int);
 int exec(const char*, char**);
 int open(const char*, int);
-// ... 등등
+// ... etc.
 ```
 
-**핵심**: `fork()`의 선언은 있지만, `user/` 디렉토리 어디에도 C로 구현된 `fork()` 함수 본문은 없습니다. 그렇다면 실제 코드는 어디에 있을까요?
+**Key point**: The declaration of `fork()` exists, but there is no C implementation of `fork()` anywhere in the `user/` directory. So where is the actual code?
 
-### 2.2 시스템 콜 스텁 생성: `user/usys.pl`
+### 2.2 System Call Stub Generation: `user/usys.pl`
 
 ```perl
 #!/usr/bin/perl -w
@@ -145,28 +145,28 @@ sub entry {
 entry("fork");
 entry("exit");
 entry("wait");
-# ... 나머지 시스템 콜들
+# ... remaining system calls
 ```
 
-이 Perl 스크립트는 빌드 시 `user/usys.S` 어셈블리 파일을 자동 생성합니다.
+This Perl script automatically generates the `user/usys.S` assembly file during the build.
 
-**생성되는 어셈블리 (fork의 경우)**:
+**Generated assembly (for fork)**:
 
 ```asm
 .global fork
 fork:
- li a7, SYS_fork      # a7 레지스터에 시스템 콜 번호(1)를 로드
- ecall                 # RISC-V의 환경 호출 명령어 → 커널로 트랩
- ret                   # 커널에서 돌아온 후 반환
+ li a7, SYS_fork      # Load system call number (1) into register a7
+ ecall                 # RISC-V environment call instruction -> trap into kernel
+ ret                   # Return after coming back from kernel
 ```
 
-**핵심 포인트**:
-- `a7` 레지스터에 시스템 콜 번호를 넣는다
-- `ecall` 명령어로 트랩(trap)을 발생시켜 CPU가 유저 모드에서 커널 모드로 전환된다
-- 인자가 있는 시스템 콜은 `a0`~`a5` 레지스터를 통해 전달한다
-- 반환값은 `a0` 레지스터에 담겨 돌아온다
+**Key points**:
+- The system call number is placed in the `a7` register
+- The `ecall` instruction triggers a trap, causing the CPU to switch from user mode to kernel mode
+- For system calls with arguments, the arguments are passed via registers `a0`~`a5`
+- The return value comes back in the `a0` register
 
-### 2.3 시스템 콜 번호: `kernel/syscall.h`
+### 2.3 System Call Numbers: `kernel/syscall.h`
 
 ```c
 // kernel/syscall.h
@@ -195,50 +195,50 @@ fork:
 #define SYS_close  21
 ```
 
-각 시스템 콜에는 고유한 번호가 부여됩니다. `fork`는 1번입니다.
+Each system call is assigned a unique number. `fork` is number 1.
 
-### 2.4 트랩 처리: `ecall` 이후 무슨 일이 일어나는가
+### 2.4 Trap Handling: What Happens After `ecall`
 
-`ecall` 명령어가 실행되면 다음 순서로 진행됩니다:
+When the `ecall` instruction is executed, the following sequence occurs:
 
 ```
 [User Space]                          [Kernel Space]
 
  fork()
-   │
-   ▼
+   |
+   v
  li a7, SYS_fork
- ecall ─────────────────────────────►  trampoline.S: uservec
-                                           │
-                                           │ (레지스터 저장, 커널 스택으로 전환)
-                                           ▼
-                                       trap.c: usertrap()
-                                           │
-                                           │ (scause == 8 → 시스템 콜)
-                                           ▼
-                                       syscall.c: syscall()
-                                           │
-                                           │ (a7에서 번호 읽기, 테이블 조회)
-                                           ▼
-                                       sysproc.c: sys_fork()
-                                           │
-                                           ▼
-                                       proc.c: kfork()
-                                           │
-                                           │ (실제 프로세스 복제)
-                                           ▼
-                                       반환값을 a0에 저장
-                                           │
- ret ◄──────────────────────────────  trampoline.S: userret
-   │
-   ▼
- (fork 반환값 사용)
+ ecall -------------------------------->  trampoline.S: uservec
+                                              |
+                                              | (save registers, switch to kernel stack)
+                                              v
+                                          trap.c: usertrap()
+                                              |
+                                              | (scause == 8 -> system call)
+                                              v
+                                          syscall.c: syscall()
+                                              |
+                                              | (read number from a7, table lookup)
+                                              v
+                                          sysproc.c: sys_fork()
+                                              |
+                                              v
+                                          proc.c: kfork()
+                                              |
+                                              | (actual process duplication)
+                                              v
+                                          store return value in a0
+                                              |
+ ret <----------------------------------  trampoline.S: userret
+   |
+   v
+ (use fork return value)
 ```
 
-### 2.5 `usertrap()` - 트랩 종류 판별
+### 2.5 `usertrap()` - Determining the Trap Type
 
 ```c
-// kernel/trap.c (발췌)
+// kernel/trap.c (excerpt)
 
 uint64
 usertrap(void)
@@ -270,15 +270,15 @@ usertrap(void)
 }
 ```
 
-**핵심 포인트**:
-- `scause == 8`이면 시스템 콜 (`ecall from U-mode`)
-- `epc += 4`: `ecall` 명령어 다음 명령어로 복귀하기 위해 PC를 4바이트 전진
-- 그 후 `syscall()` 함수를 호출
+**Key points**:
+- `scause == 8` means a system call (`ecall from U-mode`)
+- `epc += 4`: advance the PC by 4 bytes to return to the instruction after `ecall`
+- Then calls the `syscall()` function
 
-### 2.6 `syscall()` - 디스패치 함수
+### 2.6 `syscall()` - The Dispatch Function
 
 ```c
-// kernel/syscall.c (발췌)
+// kernel/syscall.c (excerpt)
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -325,12 +325,12 @@ syscall(void)
 }
 ```
 
-**핵심 포인트**:
-- `syscalls[]`는 **함수 포인터 배열**이다. 시스템 콜 번호로 인덱싱하면 해당 구현 함수를 얻는다.
-- `p->trapframe->a7`에서 시스템 콜 번호를 읽는다 (사용자가 `a7`에 넣은 값).
-- 해당 함수를 호출하고, 반환값을 `p->trapframe->a0`에 저장한다 (사용자에게 돌려줄 값).
+**Key points**:
+- `syscalls[]` is a **function pointer array**. Indexing with the system call number yields the corresponding implementation function.
+- The system call number is read from `p->trapframe->a7` (the value the user placed in `a7`).
+- The function is called and its return value is stored in `p->trapframe->a0` (the value to return to the user).
 
-### 2.7 구현 함수: `sys_fork()`와 `kfork()`
+### 2.7 Implementation Functions: `sys_fork()` and `kfork()`
 
 ```c
 // kernel/sysproc.c
@@ -367,28 +367,28 @@ kfork(void)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
-  // ... (파일 디스크립터 복사, 이름 복사 등)
+  // ... (copy file descriptors, copy name, etc.)
 
   np->state = RUNNABLE;
   return pid;
 }
 ```
 
-### [실습 과제] 다음 빈칸을 채워보세요.
+### [Exercise] Fill in the blanks below.
 
-사용자가 `fork()`를 호출하면:
+When a user calls `fork()`:
 
-1. `user/usys.S`에서 `a7` 레지스터에 `_____` 번을 넣고 `_____` 명령어를 실행한다.
-2. CPU가 _____ 모드에서 _____ 모드로 전환된다.
-3. `kernel/trap.c`의 `_____()` 함수가 호출되어 `scause == _____`인 것을 확인한다.
-4. `kernel/syscall.c`의 `_____()` 함수에서 `syscalls[_____]`를 통해 `_____()` 함수를 호출한다.
-5. 최종적으로 `kernel/proc.c`의 `_____()` 함수에서 실제 프로세스 복제가 이루어진다.
+1. In `user/usys.S`, the number `_____` is placed in register `a7` and the `_____` instruction is executed.
+2. The CPU switches from _____ mode to _____ mode.
+3. The `_____()` function in `kernel/trap.c` is called and confirms that `scause == _____`.
+4. In `kernel/syscall.c`, the `_____()` function calls `_____()` via `syscalls[_____]`.
+5. Finally, the actual process duplication is performed in the `_____()` function in `kernel/proc.c`.
 
 ---
 
-## 실습 3: `struct proc` 분석 (10분)
+## Lab 3: Analyzing `struct proc` (10 min)
 
-### 3.1 프로세스 상태 (Process State)
+### 3.1 Process State
 
 ```c
 // kernel/proc.h
@@ -396,29 +396,29 @@ kfork(void)
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 ```
 
-프로세스의 생명 주기:
+Process lifecycle:
 
 ```
-  allocproc()         scheduler에 의해
-      │                  선택됨
-      ▼                    │
-   UNUSED ──► USED ──► RUNNABLE ──► RUNNING
-                           ▲            │
-                           │            │ yield() / 인터럽트
-                           └────────────┘
-                                        │
-                           sleep()      │  exit()
-                              │         │    │
-                              ▼         │    ▼
-                          SLEEPING      │  ZOMBIE
-                              │         │    │
-                           wakeup()     │  parent의 wait()
-                              │         │    │
-                              └─────────┘    ▼
+  allocproc()         Selected by
+      |                scheduler
+      v                    |
+   UNUSED --> USED --> RUNNABLE --> RUNNING
+                           ^            |
+                           |            | yield() / interrupt
+                           +------------+
+                                        |
+                           sleep()      |  exit()
+                              |         |    |
+                              v         |    v
+                          SLEEPING      |  ZOMBIE
+                              |         |    |
+                           wakeup()     |  parent's wait()
+                              |         |    |
+                              +---------+    v
                                           UNUSED (freeproc)
 ```
 
-### 3.2 `struct proc` 전체 구조
+### 3.2 Full Structure of `struct proc`
 
 ```c
 // kernel/proc.h
@@ -449,52 +449,52 @@ struct proc {
 };
 ```
 
-### 3.3 각 필드의 역할
+### 3.3 Role of Each Field
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| `lock` | `struct spinlock` | 프로세스 구조체 보호용 스핀락 |
-| `state` | `enum procstate` | 현재 프로세스 상태 (UNUSED, RUNNABLE, RUNNING 등) |
-| `chan` | `void *` | sleep 중인 채널 (조건 변수 역할) |
-| `killed` | `int` | 1이면 종료 예정 (다음 트랩 시 exit) |
-| `xstate` | `int` | 종료 상태값 (parent의 `wait()`에 전달) |
-| `pid` | `int` | 프로세스 ID (고유 식별자) |
-| `parent` | `struct proc *` | 부모 프로세스를 가리키는 포인터 |
-| `kstack` | `uint64` | 커널 스택의 가상 주소 |
-| `sz` | `uint64` | 유저 메모리 크기 (바이트) |
-| `pagetable` | `pagetable_t` | 유저 페이지 테이블 |
-| `trapframe` | `struct trapframe *` | 트랩 시 유저 레지스터 저장 영역 |
-| `context` | `struct context` | 컨텍스트 스위치용 커널 레지스터 |
-| `ofile[NOFILE]` | `struct file *[]` | 열린 파일 테이블 (NOFILE=16) |
-| `cwd` | `struct inode *` | 현재 작업 디렉토리 |
-| `name[16]` | `char[]` | 프로세스 이름 (디버깅용) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `lock` | `struct spinlock` | Spinlock for protecting the process structure |
+| `state` | `enum procstate` | Current process state (UNUSED, RUNNABLE, RUNNING, etc.) |
+| `chan` | `void *` | Channel on which process is sleeping (acts as a condition variable) |
+| `killed` | `int` | If 1, marked for termination (will exit at next trap) |
+| `xstate` | `int` | Exit status value (passed to parent's `wait()`) |
+| `pid` | `int` | Process ID (unique identifier) |
+| `parent` | `struct proc *` | Pointer to parent process |
+| `kstack` | `uint64` | Virtual address of kernel stack |
+| `sz` | `uint64` | Size of user memory (bytes) |
+| `pagetable` | `pagetable_t` | User page table |
+| `trapframe` | `struct trapframe *` | Storage area for user registers during traps |
+| `context` | `struct context` | Kernel registers for context switching |
+| `ofile[NOFILE]` | `struct file *[]` | Open file table (NOFILE=16) |
+| `cwd` | `struct inode *` | Current working directory |
+| `name[16]` | `char[]` | Process name (for debugging) |
 
 ### 3.4 trapframe vs context
 
-두 구조체 모두 레지스터를 저장하지만 용도가 다릅니다:
+Both structures save registers, but they serve different purposes:
 
-- **`trapframe`**: 유저 모드 ↔ 커널 모드 전환 시 **유저 레지스터**를 저장/복원
-  - `ecall`로 트랩이 발생하면 trampoline.S가 모든 유저 레지스터를 여기에 저장
-  - 커널에서 유저로 돌아갈 때 여기서 레지스터를 복원
+- **`trapframe`**: Saves/restores **user registers** during user mode <-> kernel mode transitions
+  - When a trap occurs via `ecall`, trampoline.S saves all user registers here
+  - When returning from kernel to user, registers are restored from here
 
-- **`context`**: 커널 스레드 간 **컨텍스트 스위치** 시 커널 레지스터를 저장/복원
-  - `swtch()` 함수가 callee-saved 레지스터만 저장 (ra, sp, s0-s11)
-  - 프로세스 ↔ 스케줄러 간 전환에 사용
+- **`context`**: Saves/restores kernel registers during **context switches** between kernel threads
+  - The `swtch()` function saves only callee-saved registers (ra, sp, s0-s11)
+  - Used for switching between processes and the scheduler
 
-### [실습 과제] 아래 질문에 답해보세요.
+### [Exercise] Answer the following questions.
 
-1. 프로세스가 최대 몇 개까지 동시에 존재할 수 있는가? (힌트: `kernel/param.h`의 `NPROC`)
-2. 하나의 프로세스가 동시에 열 수 있는 파일은 최대 몇 개인가?
-3. `fork()`로 자식 프로세스를 만들면, 부모의 열린 파일들은 어떻게 되는가?
-4. 프로세스가 `exit()` 한 후 `wait()`되기 전까지 어떤 상태에 있는가?
+1. What is the maximum number of processes that can exist simultaneously? (Hint: `NPROC` in `kernel/param.h`)
+2. What is the maximum number of files a single process can have open at once?
+3. When a child process is created with `fork()`, what happens to the parent's open files?
+4. After a process calls `exit()` but before it is `wait()`ed on, what state is it in?
 
 ---
 
-## 실습 4: `fork()` 구현 코드 읽기 (10분)
+## Lab 4: Reading the `fork()` Implementation Code (10 min)
 
-### 4.1 `kfork()` 전체 코드 분석
+### 4.1 Full Analysis of `kfork()`
 
-`kernel/proc.c`의 `kfork()` 함수를 한 줄씩 분석합니다.
+We will analyze the `kfork()` function in `kernel/proc.c` line by line.
 
 ```c
 // kernel/proc.c
@@ -506,73 +506,73 @@ kfork(void)
 {
   int i, pid;
   struct proc *np;
-  struct proc *p = myproc();          // (1) 현재(부모) 프로세스 가져오기
+  struct proc *p = myproc();          // (1) Get current (parent) process
 
   // Allocate process.
-  if((np = allocproc()) == 0){        // (2) 새 프로세스 슬롯 할당
-    return -1;                        //     실패 시 -1 반환
+  if((np = allocproc()) == 0){        // (2) Allocate a new process slot
+    return -1;                        //     Return -1 on failure
   }
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
-    freeproc(np);                     // (3) 부모의 메모리를 자식에게 복사
-    release(&np->lock);               //     실패 시 정리 후 -1 반환
+    freeproc(np);                     // (3) Copy parent's memory to child
+    release(&np->lock);               //     Clean up and return -1 on failure
     return -1;
   }
-  np->sz = p->sz;                     // (4) 메모리 크기도 동일하게
+  np->sz = p->sz;                     // (4) Set memory size to be the same
 
   // copy saved user registers.
-  *(np->trapframe) = *(p->trapframe); // (5) 유저 레지스터 전체 복사
+  *(np->trapframe) = *(p->trapframe); // (5) Copy all user registers
 
   // Cause fork to return 0 in the child.
-  np->trapframe->a0 = 0;             // (6) 자식의 반환값 = 0
+  np->trapframe->a0 = 0;             // (6) Child's return value = 0
 
   // increment reference counts on open file descriptors.
-  for(i = 0; i < NOFILE; i++)         // (7) 열린 파일 디스크립터 복사
+  for(i = 0; i < NOFILE; i++)         // (7) Copy open file descriptors
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
-  np->cwd = idup(p->cwd);            // (8) 현재 디렉토리 복사
+  np->cwd = idup(p->cwd);            // (8) Copy current directory
 
-  safestrcpy(np->name, p->name, sizeof(p->name));  // (9) 프로세스 이름 복사
+  safestrcpy(np->name, p->name, sizeof(p->name));  // (9) Copy process name
 
   pid = np->pid;
 
   release(&np->lock);
 
   acquire(&wait_lock);
-  np->parent = p;                     // (10) 부모-자식 관계 설정
+  np->parent = p;                     // (10) Set parent-child relationship
   release(&wait_lock);
 
   acquire(&np->lock);
-  np->state = RUNNABLE;               // (11) 자식을 실행 가능 상태로
+  np->state = RUNNABLE;               // (11) Set child to runnable state
   release(&np->lock);
 
-  return pid;                         // (12) 부모에게는 자식의 PID 반환
+  return pid;                         // (12) Return child's PID to parent
 }
 ```
 
-### 4.2 fork()가 두 번 반환하는 원리
+### 4.2 How fork() Returns Twice
 
-`fork()`가 "두 번 반환한다"는 것은 xv6를 처음 배울 때 가장 혼란스러운 개념 중 하나입니다.
+The idea that `fork()` "returns twice" is one of the most confusing concepts when first learning xv6.
 
-1. **부모 프로세스**: `kfork()`가 `return pid;`로 자식의 PID를 반환
-2. **자식 프로세스**: `np->trapframe->a0 = 0;`에 의해, 자식이 유저 모드로 복귀할 때 `a0` 레지스터가 0 → `fork()`의 반환값이 0
+1. **Parent process**: `kfork()` returns the child's PID via `return pid;`
+2. **Child process**: Due to `np->trapframe->a0 = 0;`, when the child returns to user mode, the `a0` register is 0, so `fork()`'s return value is 0
 
 ```
-[부모]                              [자식]
-kfork() {                           (아직 실행 안 됨)
+[Parent]                              [Child]
+kfork() {                             (not yet running)
   ...
   np->trapframe->a0 = 0;
-  np->state = RUNNABLE;             스케줄러에 의해 선택됨
-  return pid; ──► fork()=pid            │
-}                                       ▼
-                                    forkret() → userret
-                                        │
-                                        ▼
-                                    a0=0 ──► fork()=0
+  np->state = RUNNABLE;               Selected by scheduler
+  return pid; --> fork()=pid               |
+}                                          v
+                                    forkret() -> userret
+                                        |
+                                        v
+                                    a0=0 --> fork()=0
 ```
 
-### 4.3 `allocproc()` - 프로세스 슬롯 할당
+### 4.3 `allocproc()` - Process Slot Allocation
 
 ```c
 // kernel/proc.c
@@ -582,18 +582,18 @@ allocproc(void)
 {
   struct proc *p;
 
-  for(p = proc; p < &proc[NPROC]; p++) {  // 전체 프로세스 테이블 순회
+  for(p = proc; p < &proc[NPROC]; p++) {  // Iterate over entire process table
     acquire(&p->lock);
-    if(p->state == UNUSED) {               // UNUSED 슬롯 찾기
+    if(p->state == UNUSED) {               // Find an UNUSED slot
       goto found;
     } else {
       release(&p->lock);
     }
   }
-  return 0;                                // 빈 슬롯 없음
+  return 0;                                // No free slot available
 
 found:
-  p->pid = allocpid();                     // PID 할당
+  p->pid = allocpid();                     // Allocate PID
   p->state = USED;
 
   // Allocate a trapframe page.
@@ -604,7 +604,7 @@ found:
   }
 
   // An empty user page table.
-  p->pagetable = proc_pagetable(p);        // 페이지 테이블 생성
+  p->pagetable = proc_pagetable(p);        // Create page table
   if(p->pagetable == 0){
     freeproc(p);
     release(&p->lock);
@@ -614,69 +614,69 @@ found:
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
-  p->context.ra = (uint64)forkret;         // 처음 스케줄되면 forkret()부터 실행
-  p->context.sp = p->kstack + PGSIZE;      // 커널 스택 꼭대기
+  p->context.ra = (uint64)forkret;         // When first scheduled, start at forkret()
+  p->context.sp = p->kstack + PGSIZE;      // Top of kernel stack
 
   return p;
 }
 ```
 
-**핵심 포인트**:
-- xv6는 `proc[NPROC]` 배열로 프로세스 테이블을 관리한다 (최대 64개).
-- `context.ra = forkret`: 새 프로세스가 처음 스케줄될 때 `swtch()`로부터 `forkret()`으로 점프한다.
+**Key points**:
+- xv6 manages the process table as a `proc[NPROC]` array (maximum 64 entries).
+- `context.ra = forkret`: When a new process is first scheduled, `swtch()` jumps to `forkret()`.
 
-### [실습 과제] 코드를 읽고 다음 질문에 답해보세요.
+### [Exercise] Read the code and answer the following questions.
 
-1. `kfork()`에서 `np->trapframe->a0 = 0;`을 삭제하면 어떤 일이 일어날까?
-2. `for(i = 0; i < NOFILE; i++)` 루프는 왜 필요한가? 파일 디스크립터를 복사하지 않으면?
-3. `np->state = RUNNABLE;`을 `RUNNING`으로 바꾸면 어떤 문제가 생길까?
-4. `allocproc()`에서 `context.ra = (uint64)forkret;`의 의미는?
-
----
-
-## 정리: 시스템 콜 전체 흐름 요약
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ User Space                                              │
-│                                                         │
-│  user program:  fork()                                  │
-│       │                                                 │
-│       ▼                                                 │
-│  usys.S:  li a7, SYS_fork                               │
-│           ecall                                         │
-│       │                                                 │
-├───────│─────────────────────────────────────────────────┤
-│       ▼  [TRAP: 유저→커널 모드 전환]                     │
-│ Kernel Space                                            │
-│                                                         │
-│  trampoline.S: uservec (레지스터 저장, 커널 스택 전환)    │
-│       │                                                 │
-│       ▼                                                 │
-│  trap.c: usertrap()  ← scause == 8 (시스템 콜)          │
-│       │                                                 │
-│       ▼                                                 │
-│  syscall.c: syscall()                                   │
-│    num = trapframe->a7;         ← 시스템 콜 번호 읽기    │
-│    trapframe->a0 = syscalls[num]();  ← 함수 호출+반환값  │
-│       │                                                 │
-│       ▼                                                 │
-│  sysproc.c: sys_fork() → proc.c: kfork()                │
-│       │                                                 │
-│       ▼                                                 │
-│  trampoline.S: userret (레지스터 복원, 유저 모드 복귀)    │
-│       │                                                 │
-├───────│─────────────────────────────────────────────────┤
-│       ▼                                                 │
-│ User Space                                              │
-│  fork() returns (a0 = pid or 0)                         │
-└─────────────────────────────────────────────────────────┘
-```
+1. What would happen if you removed `np->trapframe->a0 = 0;` from `kfork()`?
+2. Why is the `for(i = 0; i < NOFILE; i++)` loop necessary? What would happen if file descriptors were not copied?
+3. What problems would arise if you changed `np->state = RUNNABLE;` to `RUNNING`?
+4. What does `context.ra = (uint64)forkret;` mean in `allocproc()`?
 
 ---
 
-## 보충 학습 자료
+## Summary: Complete System Call Flow
 
-- xv6 교재 Chapter 2: Operating System Organization
-- xv6 교재 Chapter 4: Traps and System Calls
-- RISC-V 특권 명세서 (Privileged Specification) - `ecall`, `sret`, `scause` 관련 부분
+```
++----------------------------------------------------------+
+| User Space                                                |
+|                                                           |
+|  user program:  fork()                                    |
+|       |                                                   |
+|       v                                                   |
+|  usys.S:  li a7, SYS_fork                                |
+|           ecall                                           |
+|       |                                                   |
+|-------|---------------------------------------------------|
+|       v  [TRAP: user -> kernel mode switch]               |
+| Kernel Space                                              |
+|                                                           |
+|  trampoline.S: uservec (save registers, switch to         |
+|       |                  kernel stack)                     |
+|       v                                                   |
+|  trap.c: usertrap()  <- scause == 8 (system call)        |
+|       |                                                   |
+|       v                                                   |
+|  syscall.c: syscall()                                     |
+|    num = trapframe->a7;         <- read syscall number    |
+|    trapframe->a0 = syscalls[num]();  <- call + ret value  |
+|       |                                                   |
+|       v                                                   |
+|  sysproc.c: sys_fork() -> proc.c: kfork()                 |
+|       |                                                   |
+|       v                                                   |
+|  trampoline.S: userret (restore registers, return to      |
+|       |                  user mode)                        |
+|-------|---------------------------------------------------|
+|       v                                                   |
+| User Space                                                |
+|  fork() returns (a0 = pid or 0)                           |
++----------------------------------------------------------+
+```
+
+---
+
+## Supplementary Learning Resources
+
+- xv6 textbook Chapter 2: Operating System Organization
+- xv6 textbook Chapter 4: Traps and System Calls
+- RISC-V Privileged Specification - sections on `ecall`, `sret`, `scause`

@@ -1,279 +1,279 @@
 # Week 10 Lab: Deadlocks
 
-## 학습 목표
+## Learning Objectives
 
-이번 실습을 마치면 다음을 할 수 있습니다:
+By the end of this lab, you will be able to:
 
-1. Deadlock의 4가지 필요 조건을 설명하고, 실제 코드에서 각 조건이 어떻게 충족되는지 식별할 수 있다
-2. pthread mutex를 사용하여 deadlock이 발생하는 상황을 직접 관찰하고 원인을 분석할 수 있다
-3. Lock ordering과 trylock을 사용하여 deadlock을 해결/회피하는 방법을 구현할 수 있다
-4. xv6 커널 소스 코드에서 lock ordering이 어떻게 적용되어 있는지 분석할 수 있다
-5. xv6의 프로세스 kill과 locking 사이의 관계를 이해할 수 있다
+1. Explain the 4 necessary conditions for deadlock and identify how each condition is satisfied in real code
+2. Directly observe a deadlock situation using pthread mutexes and analyze its cause
+3. Implement deadlock resolution/avoidance using lock ordering and trylock
+4. Analyze how lock ordering is applied in the xv6 kernel source code
+5. Understand the relationship between process kill and locking in xv6
 
-**교재 범위**: xv6 book Ch 6.4 (Lock ordering), Ch 7.9 (Code: Kill)
+**Textbook coverage**: xv6 book Ch 6.4 (Lock ordering), Ch 7.9 (Code: Kill)
 
 ---
 
-## 배경 지식: Deadlock이란?
+## Background Knowledge: What is a Deadlock?
 
-**Deadlock**(교착 상태)이란 두 개 이상의 프로세스(또는 스레드)가 서로가 보유한 자원을 기다리며 영원히 진행하지 못하는 상태입니다.
+A **deadlock** is a state where two or more processes (or threads) are each waiting for a resource held by the other, making it impossible for any of them to make progress.
 
-### Deadlock의 4가지 필요 조건 (Coffman Conditions)
+### The 4 Necessary Conditions for Deadlock (Coffman Conditions)
 
-Deadlock이 발생하려면 다음 4가지 조건이 **동시에** 성립해야 합니다:
+For a deadlock to occur, the following 4 conditions must hold **simultaneously**:
 
-| 조건 | 영문 | 설명 |
-|------|------|------|
-| **상호 배제** | Mutual Exclusion | 자원은 한 번에 하나의 프로세스만 사용할 수 있다 |
-| **점유 대기** | Hold & Wait | 자원을 보유한 상태에서 다른 자원을 기다린다 |
-| **비선점** | No Preemption | 다른 프로세스가 보유한 자원을 강제로 뺏을 수 없다 |
-| **순환 대기** | Circular Wait | 프로세스들이 순환적으로 서로의 자원을 기다린다 |
+| Condition | Description |
+|-----------|-------------|
+| **Mutual Exclusion** | A resource can only be used by one process at a time |
+| **Hold & Wait** | A process holds a resource while waiting for another resource |
+| **No Preemption** | A resource held by a process cannot be forcibly taken away |
+| **Circular Wait** | Processes form a circular chain, each waiting for a resource held by the next |
 
-이 중 하나라도 깨뜨리면 deadlock을 방지할 수 있습니다.
+Breaking any one of these conditions can prevent deadlock.
 
-### Deadlock 예시 (개념도)
+### Deadlock Example (Conceptual Diagram)
 
 ```
 Thread 1                    Thread 2
    |                           |
-   | lock(A) -- 성공            | lock(B) -- 성공
+   | lock(A) -- success        | lock(B) -- success
    |                           |
-   | lock(B) -- 대기...         | lock(A) -- 대기...
+   | lock(B) -- waiting...     | lock(A) -- waiting...
    |     ^                     |     ^
    |     |_____________________|_____|
    |                           |
-   +-- Thread 2가 B를 놓기를    +-- Thread 1이 A를 놓기를
-       기다림                       기다림
+   +-- Waiting for Thread 2    +-- Waiting for Thread 1
+       to release B                to release A
 
-   ==> 영원히 진행 불가 (Deadlock!)
+   ==> No progress possible (Deadlock!)
 ```
 
 ---
 
-## Exercise 1: Deadlock 발생 관찰 (~10분)
+## Exercise 1: Observing a Deadlock (~10 min)
 
-### 목표
-실제로 deadlock이 발생하여 프로그램이 멈추는 것을 직접 관찰합니다.
+### Goal
+Directly observe a program hanging due to an actual deadlock.
 
-### 코드 분석
+### Code Analysis
 
-`examples/deadlock_demo.c` 파일을 열어 코드를 읽어보세요.
+Open and read the code in `examples/deadlock_demo.c`.
 
 ```c
-/* Thread 1: A를 먼저 잡고, B를 잡으려고 시도 */
+/* Thread 1: Lock A first, then try to lock B */
 void *thread1_func(void *arg)
 {
-    pthread_mutex_lock(&mutex_A);    // (1) A 잠금
-    usleep(100000);                  // (2) 잠시 대기
-    pthread_mutex_lock(&mutex_B);    // (3) B 잠금 시도 -> 대기!
+    pthread_mutex_lock(&mutex_A);    // (1) Lock A
+    usleep(100000);                  // (2) Brief wait
+    pthread_mutex_lock(&mutex_B);    // (3) Try to lock B -> blocks!
     ...
 }
 
-/* Thread 2: B를 먼저 잡고, A를 잡으려고 시도 (반대 순서!) */
+/* Thread 2: Lock B first, then try to lock A (reverse order!) */
 void *thread2_func(void *arg)
 {
-    pthread_mutex_lock(&mutex_B);    // (1) B 잠금
-    usleep(100000);                  // (2) 잠시 대기
-    pthread_mutex_lock(&mutex_A);    // (3) A 잠금 시도 -> 대기!
+    pthread_mutex_lock(&mutex_B);    // (1) Lock B
+    usleep(100000);                  // (2) Brief wait
+    pthread_mutex_lock(&mutex_A);    // (3) Try to lock A -> blocks!
     ...
 }
 ```
 
-### 실습 단계
+### Lab Steps
 
-**1단계: 컴파일**
+**Step 1: Compile**
 
 ```bash
 cd practice/week10/lab/examples
 gcc -Wall -pthread -o deadlock_demo deadlock_demo.c
 ```
 
-**2단계: 실행**
+**Step 2: Run**
 
 ```bash
 ./deadlock_demo
 ```
 
-프로그램이 멈추는 것을 확인하세요. 약 10초 정도 기다린 후 `Ctrl+C`로 종료합니다.
+Confirm that the program hangs. Wait about 10 seconds and then terminate with `Ctrl+C`.
 
-**3단계: 분석**
+**Step 3: Analysis**
 
-> **질문 1**: 프로그램 출력에서 마지막으로 출력된 메시지는 무엇인가요? 그 이후에 왜 더 이상 진행되지 않았나요?
+> **Question 1**: What was the last message printed in the program output? Why did it stop progressing after that?
 >
-> **질문 2**: 이 상황에서 Deadlock의 4가지 조건이 어떻게 충족되는지 하나씩 설명해 보세요.
+> **Question 2**: Explain how each of the 4 deadlock conditions is satisfied in this situation.
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-**질문 1 정답**:
-- Thread 1은 "mutex_B 잠금 시도..." 에서 멈춤
-- Thread 2는 "mutex_A 잠금 시도..." 에서 멈춤
-- Thread 1이 mutex_B를 기다리고, Thread 2가 mutex_A를 기다리는데, 각각 상대가 보유한 lock을 기다리므로 영원히 진행할 수 없습니다.
+**Question 1 Answer**:
+- Thread 1 is stuck at "Attempting to lock mutex_B..."
+- Thread 2 is stuck at "Attempting to lock mutex_A..."
+- Thread 1 is waiting for mutex_B, and Thread 2 is waiting for mutex_A, each waiting for a lock held by the other, so neither can ever make progress.
 
-**질문 2 정답**:
-1. **Mutual Exclusion**: mutex는 한 번에 하나의 스레드만 잠글 수 있습니다
-2. **Hold & Wait**: Thread 1은 mutex_A를 보유한 채 mutex_B를 기다리고, Thread 2는 mutex_B를 보유한 채 mutex_A를 기다립니다
-3. **No Preemption**: `pthread_mutex_lock`은 lock을 강제로 뺏지 못하고, 상대가 풀어줄 때까지 기다립니다
-4. **Circular Wait**: Thread 1 -> mutex_B(Thread 2 보유) -> Thread 2 -> mutex_A(Thread 1 보유) -> Thread 1... 순환 발생
+**Question 2 Answer**:
+1. **Mutual Exclusion**: A mutex can only be locked by one thread at a time
+2. **Hold & Wait**: Thread 1 holds mutex_A while waiting for mutex_B, and Thread 2 holds mutex_B while waiting for mutex_A
+3. **No Preemption**: `pthread_mutex_lock` cannot forcibly take a lock; it waits until the other side releases it
+4. **Circular Wait**: Thread 1 -> mutex_B (held by Thread 2) -> Thread 2 -> mutex_A (held by Thread 1) -> Thread 1... a cycle is formed
 
 </details>
 
 ---
 
-## Exercise 2: Lock Ordering으로 Deadlock 해결 (~10분)
+## Exercise 2: Resolving Deadlock with Lock Ordering (~10 min)
 
-### 목표
-**순환 대기(Circular Wait)** 조건을 깨뜨려 deadlock을 방지합니다.
+### Goal
+Prevent deadlock by breaking the **Circular Wait** condition.
 
-### 핵심 아이디어
+### Key Idea
 
-모든 스레드가 lock을 **동일한 순서**로 획득하면 순환 대기가 발생할 수 없습니다:
+If all threads acquire locks in the **same order**, circular wait cannot occur:
 
 ```
-규칙: 항상 mutex_A를 먼저, mutex_B를 나중에 잠금
+Rule: Always lock mutex_A first, then mutex_B
 
-Thread 1: lock(A) -> lock(B)    (원래와 동일)
-Thread 2: lock(A) -> lock(B)    (순서 변경!)
+Thread 1: lock(A) -> lock(B)    (same as before)
+Thread 2: lock(A) -> lock(B)    (order changed!)
 ```
 
-이렇게 하면 Thread 2가 A를 잡지 못하고 기다리는 동안, Thread 1이 A와 B를 모두 사용하고 해제한 후 Thread 2가 진행할 수 있습니다.
+This way, while Thread 2 is waiting to acquire A, Thread 1 can use both A and B, release them, and then Thread 2 can proceed.
 
-### 실습 단계
+### Lab Steps
 
-**1단계: 코드 분석**
+**Step 1: Code Analysis**
 
-`examples/deadlock_fix_ordering.c`를 열어 두 스레드 함수를 비교해 보세요.
+Open `examples/deadlock_fix_ordering.c` and compare the two thread functions.
 
-핵심 변경점 (`thread2_func`에서):
+Key change (in `thread2_func`):
 ```c
-/* [수정 전 - deadlock 발생] */
-pthread_mutex_lock(&mutex_B);  // B를 먼저
-pthread_mutex_lock(&mutex_A);  // A를 나중에
+/* [Before fix - deadlock occurs] */
+pthread_mutex_lock(&mutex_B);  // B first
+pthread_mutex_lock(&mutex_A);  // A second
 
-/* [수정 후 - lock ordering 적용] */
-pthread_mutex_lock(&mutex_A);  // A를 먼저 (순서 통일!)
-pthread_mutex_lock(&mutex_B);  // B를 나중에
+/* [After fix - lock ordering applied] */
+pthread_mutex_lock(&mutex_A);  // A first (unified order!)
+pthread_mutex_lock(&mutex_B);  // B second
 ```
 
-**2단계: 컴파일 및 실행**
+**Step 2: Compile and Run**
 
 ```bash
 gcc -Wall -pthread -o deadlock_fix_ordering deadlock_fix_ordering.c
 ./deadlock_fix_ordering
 ```
 
-**3단계: 확인**
+**Step 3: Verify**
 
-프로그램이 정상적으로 종료되는 것을 확인합니다. 두 스레드가 각각 5번 반복하여 총 10번의 임계 영역 진입이 모두 성공합니다.
+Confirm that the program terminates normally. Both threads iterate 5 times each, and all 10 critical section entries succeed.
 
-> **질문 3**: Lock ordering이 4가지 deadlock 조건 중 어떤 조건을 깨뜨리나요?
+> **Question 3**: Which of the 4 deadlock conditions does lock ordering break?
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-**Circular Wait (순환 대기)** 를 깨뜨립니다.
+It breaks **Circular Wait**.
 
-모든 스레드가 동일한 순서(A -> B)로 lock을 잡으면, 한 스레드가 A를 잡고 B를 기다리는 동안 다른 스레드는 A조차 잡지 못하므로 순환이 형성될 수 없습니다.
+If all threads acquire locks in the same order (A -> B), while one thread holds A and waits for B, the other thread cannot even acquire A, so a cycle cannot form.
 
-이것이 xv6 커널이 채택한 전략이며, 교재 Ch 6.4에서 설명하는 내용입니다.
+This is the strategy adopted by the xv6 kernel, and it is what is described in textbook Ch 6.4.
 
 </details>
 
 ---
 
-## Exercise 3: pthread_mutex_trylock으로 Deadlock 회피 (~10분)
+## Exercise 3: Avoiding Deadlock with pthread_mutex_trylock (~10 min)
 
-### 목표
-**점유 대기(Hold & Wait)** 조건을 깨뜨려 deadlock을 회피합니다.
+### Goal
+Avoid deadlock by breaking the **Hold & Wait** condition.
 
-### 핵심 아이디어
+### Key Idea
 
-`pthread_mutex_trylock`은 lock을 즉시 획득하지 못하면 **차단하지 않고 실패를 반환**합니다. 실패 시 이미 보유한 lock을 해제(back-off)하면 Hold & Wait 조건이 깨집니다:
+`pthread_mutex_trylock` **does not block and returns failure** if the lock cannot be acquired immediately. On failure, releasing already-held locks (back-off) breaks the Hold & Wait condition:
 
 ```
 Thread 1:
   lock(A)
-  if trylock(B) 실패:
-      unlock(A)        <- 보유한 것을 해제! (Hold & Wait 파괴)
-      잠시 대기
-      처음부터 재시도
+  if trylock(B) fails:
+      unlock(A)        <- Release what you hold! (Destroys Hold & Wait)
+      Brief wait
+      Retry from the beginning
 ```
 
-### 실습 단계
+### Lab Steps
 
-**1단계: 코드 분석**
+**Step 1: Code Analysis**
 
-`examples/deadlock_fix_trylock.c`에서 `thread1_func`의 핵심 로직을 읽어보세요:
+Read the core logic of `thread1_func` in `examples/deadlock_fix_trylock.c`:
 
 ```c
 while (!success) {
-    pthread_mutex_lock(&mutex_A);           // A 잠금
+    pthread_mutex_lock(&mutex_A);           // Lock A
 
     if (pthread_mutex_trylock(&mutex_B) == 0) {
-        /* 성공: 임계 영역 진입 */
+        /* Success: enter critical section */
         success = 1;
         ...
     } else {
-        /* 실패: back-off */
-        pthread_mutex_unlock(&mutex_A);     // A 해제!
-        usleep(rand() % 50000);             // 랜덤 대기
+        /* Failure: back-off */
+        pthread_mutex_unlock(&mutex_A);     // Release A!
+        usleep(rand() % 50000);             // Random wait
     }
 }
 ```
 
-**2단계: 컴파일 및 실행**
+**Step 2: Compile and Run**
 
 ```bash
 gcc -Wall -pthread -o deadlock_fix_trylock deadlock_fix_trylock.c
 ./deadlock_fix_trylock
 ```
 
-**3단계: 출력 분석**
+**Step 3: Output Analysis**
 
-출력에서 "trylock 실패! -> back-off" 메시지를 찾아보세요. 일부 시도에서 trylock이 실패하고, back-off 후 재시도하여 성공하는 패턴을 확인합니다.
+Look for "trylock failed! -> back-off" messages in the output. Observe the pattern where trylock fails on some attempts, and after back-off, succeeds on retry.
 
-> **질문 4**: trylock 방식이 4가지 deadlock 조건 중 어떤 조건을 깨뜨리나요?
+> **Question 4**: Which of the 4 deadlock conditions does the trylock approach break?
 
-> **질문 5**: trylock + back-off 방식의 단점은 무엇인가요?
+> **Question 5**: What are the disadvantages of the trylock + back-off approach?
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-**질문 4 정답**: **Hold & Wait (점유 대기)** 를 깨뜨립니다. trylock이 실패하면 이미 보유한 lock을 해제하므로, "자원을 보유한 채 다른 자원을 기다리는" 상황이 발생하지 않습니다.
+**Question 4 Answer**: It breaks **Hold & Wait**. When trylock fails, the already-held lock is released, so the situation of "holding a resource while waiting for another" does not occur.
 
-**질문 5 정답**:
-- **Livelock** 위험: 두 스레드가 계속 trylock 실패 -> back-off -> 재시도를 반복하며 실질적인 진전이 없을 수 있습니다. 이를 완화하기 위해 랜덤 대기 시간을 사용합니다.
-- **성능 오버헤드**: 불필요한 lock/unlock 반복과 대기 시간이 발생합니다.
-- **복잡성**: lock ordering에 비해 코드가 더 복잡합니다.
+**Question 5 Answer**:
+- **Livelock** risk: Two threads may continuously repeat trylock failure -> back-off -> retry without making any real progress. Random wait times are used to mitigate this.
+- **Performance overhead**: Unnecessary lock/unlock repetition and wait times occur.
+- **Complexity**: The code is more complex compared to lock ordering.
 
-따라서 가능하면 lock ordering이 더 선호되는 방법입니다.
+Therefore, lock ordering is the preferred method when possible.
 
 </details>
 
 ---
 
-## Exercise 4: xv6 커널의 Lock Ordering 분석 (~15분)
+## Exercise 4: Analyzing Lock Ordering in the xv6 Kernel (~15 min)
 
-### 목표
-xv6 커널 소스 코드에서 deadlock 방지를 위한 lock ordering이 어떻게 적용되어 있는지 분석합니다.
+### Goal
+Analyze how lock ordering is applied in the xv6 kernel source code to prevent deadlock.
 
-### 4-1. xv6의 주요 Lock들
+### 4-1. Major Locks in xv6
 
-xv6 커널에는 다음과 같은 주요 lock들이 있습니다:
+The xv6 kernel has the following major locks:
 
-| Lock | 위치 | 용도 |
-|------|------|------|
-| `p->lock` | `kernel/proc.h` | 프로세스별 lock (state, killed, pid 등 보호) |
-| `wait_lock` | `kernel/proc.c` | 부모-자식 관계(`p->parent`) 보호 |
-| `bcache.lock` | `kernel/bio.c` | 버퍼 캐시 관리 |
-| `ftable.lock` | `kernel/file.c` | 파일 테이블 관리 |
-| `pi->lock` | `kernel/pipe.c` | 파이프별 lock |
-| `cons.lock` | `kernel/console.c` | 콘솔 입출력 |
-| `tickslock` | `kernel/trap.c` | 시스템 타이머 |
+| Lock | Location | Purpose |
+|------|----------|---------|
+| `p->lock` | `kernel/proc.h` | Per-process lock (protects state, killed, pid, etc.) |
+| `wait_lock` | `kernel/proc.c` | Protects parent-child relationship (`p->parent`) |
+| `bcache.lock` | `kernel/bio.c` | Buffer cache management |
+| `ftable.lock` | `kernel/file.c` | File table management |
+| `pi->lock` | `kernel/pipe.c` | Per-pipe lock |
+| `cons.lock` | `kernel/console.c` | Console I/O |
+| `tickslock` | `kernel/trap.c` | System timer |
 
-### 4-2. 핵심 Lock Ordering 규칙: `wait_lock` -> `p->lock`
+### 4-2. Key Lock Ordering Rule: `wait_lock` -> `p->lock`
 
-`kernel/proc.c`의 26~27행 주석을 읽어보세요:
+Read the comment at lines 26-27 of `kernel/proc.c`:
 
 ```c
 // helps ensure that wakeups of wait()ing
@@ -283,13 +283,13 @@ xv6 커널에는 다음과 같은 주요 lock들이 있습니다:
 struct spinlock wait_lock;
 ```
 
-**규칙: `wait_lock`은 항상 `p->lock`보다 먼저 획득해야 합니다.**
+**Rule: `wait_lock` must always be acquired before `p->lock`.**
 
-이 규칙이 실제로 지켜지는 코드를 확인해 봅시다.
+Let's verify that this rule is actually followed in the code.
 
-### 실습: `kexit()` 함수 분석
+### Lab: Analyzing the `kexit()` Function
 
-`kernel/proc.c`의 `kexit()` 함수 (327행~)를 읽어보세요:
+Read the `kexit()` function (line 327~) in `kernel/proc.c`:
 
 ```c
 void
@@ -297,51 +297,51 @@ kexit(int status)
 {
     struct proc *p = myproc();
     ...
-    acquire(&wait_lock);       // (1) wait_lock을 먼저 획득
+    acquire(&wait_lock);       // (1) Acquire wait_lock first
 
-    reparent(p);               // 자식 프로세스를 init에게 넘김
-    wakeup(p->parent);         // 부모 깨우기
+    reparent(p);               // Re-parent children to init
+    wakeup(p->parent);         // Wake up parent
 
-    acquire(&p->lock);         // (2) 그 다음 p->lock 획득
+    acquire(&p->lock);         // (2) Then acquire p->lock
 
     p->xstate = status;
     p->state = ZOMBIE;
 
-    release(&wait_lock);       // wait_lock 해제
+    release(&wait_lock);       // Release wait_lock
 
-    sched();                   // 스케줄러로 전환
+    sched();                   // Switch to scheduler
     ...
 }
 ```
 
-> **질문 6**: `kexit()`에서 왜 `wait_lock`을 `p->lock`보다 먼저 잡아야 할까요? 순서를 바꾸면 어떤 문제가 생길 수 있나요?
+> **Question 6**: Why must `wait_lock` be acquired before `p->lock` in `kexit()`? What problem could occur if the order were reversed?
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-`kwait()` 함수를 보면:
+Looking at the `kwait()` function:
 ```c
 int kwait(uint64 addr)
 {
-    acquire(&wait_lock);        // (1) wait_lock 먼저
+    acquire(&wait_lock);        // (1) wait_lock first
     ...
-    acquire(&pp->lock);         // (2) 자식의 p->lock 나중에
+    acquire(&pp->lock);         // (2) Child's p->lock second
     ...
 }
 ```
 
-`kwait()`도 `wait_lock` -> `p->lock` 순서로 잡습니다. 만약 `kexit()`에서 `p->lock` -> `wait_lock` 순서로 잡으면:
+`kwait()` also acquires locks in the order `wait_lock` -> `p->lock`. If `kexit()` acquired them in the order `p->lock` -> `wait_lock`:
 
-- `kexit()`: `p->lock` 보유 -> `wait_lock` 대기
-- `kwait()`: `wait_lock` 보유 -> `pp->lock` 대기
+- `kexit()`: holds `p->lock` -> waits for `wait_lock`
+- `kwait()`: holds `wait_lock` -> waits for `pp->lock`
 
-이 경우 순환 대기(Circular Wait)가 형성되어 deadlock이 발생할 수 있습니다.
+In this case, a Circular Wait would form, potentially causing a deadlock.
 
 </details>
 
-### 4-3. `sleep()` 함수의 Lock Ordering
+### 4-3. Lock Ordering in the `sleep()` Function
 
-`kernel/proc.c`의 `sleep()` 함수 (543행~)를 읽어보세요:
+Read the `sleep()` function (line 543~) in `kernel/proc.c`:
 
 ```c
 void
@@ -349,44 +349,44 @@ sleep(void *chan, struct spinlock *lk)
 {
     struct proc *p = myproc();
 
-    acquire(&p->lock);    // (1) p->lock 획득
-    release(lk);          // (2) 조건 lock 해제
+    acquire(&p->lock);    // (1) Acquire p->lock
+    release(lk);          // (2) Release condition lock
 
     p->chan = chan;
     p->state = SLEEPING;
 
-    sched();              // 스케줄러로 전환
+    sched();              // Switch to scheduler
 
     p->chan = 0;
 
-    release(&p->lock);    // p->lock 해제
-    acquire(lk);          // 조건 lock 재획득
+    release(&p->lock);    // Release p->lock
+    acquire(lk);          // Re-acquire condition lock
 }
 ```
 
-> **질문 7**: `sleep()`에서 왜 `p->lock`을 먼저 잡고, 그 다음에 조건 lock(`lk`)을 해제할까요? 순서를 바꾸면 (먼저 `lk`를 해제하고, 그 다음 `p->lock`을 잡으면) 어떤 문제가 생길까요?
+> **Question 7**: Why does `sleep()` acquire `p->lock` first and then release the condition lock (`lk`)? What problem would occur if the order were reversed (releasing `lk` first, then acquiring `p->lock`)?
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-만약 `release(lk)` 후에 `acquire(&p->lock)`을 하면, 두 동작 사이에 다른 프로세스가 `wakeup()`을 호출할 수 있습니다.
+If `release(lk)` were done before `acquire(&p->lock)`, another process could call `wakeup()` between the two operations.
 
 ```
 sleep():                           wakeup():
   release(lk)                        acquire(&p->lock)
-  // ---- 이 사이에 wakeup 호출! ---- // p->state == SLEEPING? 아직 아님!
+  // ---- wakeup called here! ----   // p->state == SLEEPING? Not yet!
   acquire(&p->lock)                  release(&p->lock)
   p->state = SLEEPING
-  sched()    // <- wakeup을 놓침! 영원히 잠듦
+  sched()    // <- Missed the wakeup! Sleeps forever
 ```
 
-`p->lock`을 먼저 잡으면, `wakeup()`이 `p->lock`을 잡지 못해 대기하게 되고, `sleep()`이 `SLEEPING` 상태로 전환한 후에야 `wakeup()`이 상태를 확인하므로 wakeup 신호를 놓치지 않습니다. 이것은 "lost wakeup" 문제를 방지하기 위한 것입니다.
+By acquiring `p->lock` first, `wakeup()` cannot acquire `p->lock` and must wait. Only after `sleep()` transitions to the SLEEPING state can `wakeup()` check the state, ensuring that the wakeup signal is not missed. This prevents the "lost wakeup" problem.
 
 </details>
 
-### 4-4. 프로세스 kill과 Locking 문제 (Ch 7.9)
+### 4-4. Process Kill and Locking Issues (Ch 7.9)
 
-xv6의 `kkill()` 함수(`kernel/proc.c` 593행~)는 매우 신중하게 설계되어 있습니다:
+xv6's `kkill()` function (`kernel/proc.c` line 593~) is designed very carefully:
 
 ```c
 int
@@ -399,7 +399,7 @@ kkill(int pid)
         if(p->pid == pid){
             p->killed = 1;
             if(p->state == SLEEPING){
-                p->state = RUNNABLE;     // 잠든 프로세스를 깨움
+                p->state = RUNNABLE;     // Wake up sleeping process
             }
             release(&p->lock);
             return 0;
@@ -410,116 +410,116 @@ kkill(int pid)
 }
 ```
 
-`kkill()`은 대상 프로세스를 **즉시 종료하지 않습니다**. 대신 `p->killed = 1`로 플래그만 설정합니다.
+`kkill()` does **not immediately terminate** the target process. Instead, it only sets the flag `p->killed = 1`.
 
-> **질문 8**: `kkill()`이 대상 프로세스를 즉시 종료하지 않는 이유를 locking 관점에서 설명해 보세요.
+> **Question 8**: Explain from a locking perspective why `kkill()` does not immediately terminate the target process.
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-대상 프로세스가 커널 코드를 실행 중이라면 여러 lock을 보유하고 있을 수 있습니다. 예를 들어:
-- 파일 시스템 lock을 보유한 채 디스크 I/O 대기 중
-- 파이프 lock을 보유한 채 데이터 대기 중
-- `wait_lock`을 보유한 채 작업 수행 중
+The target process may be executing kernel code and holding multiple locks. For example:
+- Holding a file system lock while waiting for disk I/O
+- Holding a pipe lock while waiting for data
+- Holding `wait_lock` while performing an operation
 
-이 상태에서 즉시 종료하면 **해당 lock들이 영원히 해제되지 않아** 다른 프로세스들이 deadlock에 빠질 수 있습니다.
+If the process were immediately terminated in this state, **those locks would never be released**, potentially causing other processes to deadlock.
 
-따라서 `kkill()`은 플래그만 설정하고, 대상 프로세스가 **사용자 공간으로 돌아가는 시점**(trap 처리 후)에 스스로 안전하게 종료하도록 합니다. `usertrap()` 함수(`kernel/trap.c`)에서 확인할 수 있습니다:
+Therefore, `kkill()` only sets a flag, and the target process safely terminates itself at **the point when it returns to user space** (after trap handling). This can be seen in the `usertrap()` function (`kernel/trap.c`):
 
 ```c
 uint64 usertrap(void)
 {
     ...
-    if(killed(p))        // 시스템 콜 전 확인
+    if(killed(p))        // Check before system call
         kexit(-1);
     ...
-    if(killed(p))        // 시스템 콜 후 확인
+    if(killed(p))        // Check after system call
         kexit(-1);
     ...
 }
 ```
 
-또한 `piperead()`나 `consoleread()` 같은 함수에서도 `killed()` 검사를 수행합니다:
+Functions like `piperead()` and `consoleread()` also perform `killed()` checks:
 
 ```c
 // pipe.c - piperead()
 while(pi->nread == pi->nwrite && pi->writeopen){
     if(killed(pr)){
-        release(&pi->lock);    // pipe lock을 안전하게 해제
+        release(&pi->lock);    // Safely release pipe lock
         return -1;
     }
     sleep(&pi->nread, &pi->lock);
 }
 ```
 
-이렇게 하면 프로세스가 보유한 lock을 모두 정리한 후에 종료하므로 deadlock이 발생하지 않습니다.
+This way, the process cleans up all locks it holds before terminating, preventing deadlock.
 
 </details>
 
-### 4-5. acquire()의 Deadlock 방지 기능
+### 4-5. Deadlock Prevention in acquire()
 
-`kernel/spinlock.c`의 `acquire()` 함수를 보면:
+Looking at the `acquire()` function in `kernel/spinlock.c`:
 
 ```c
 void
 acquire(struct spinlock *lk)
 {
-    push_off();             // 인터럽트 비활성화!
+    push_off();             // Disable interrupts!
     if(holding(lk))
-        panic("acquire");   // 같은 lock을 두 번 잡으면 panic!
+        panic("acquire");   // Panic if trying to acquire the same lock twice!
     ...
 }
 ```
 
-> **질문 9**: `acquire()`에서 인터럽트를 비활성화하는 이유는 무엇인가요? 인터럽트를 비활성화하지 않으면 어떤 deadlock이 발생할 수 있나요?
+> **Question 9**: Why does `acquire()` disable interrupts? What kind of deadlock could occur if interrupts were not disabled?
 
 <details>
-<summary>정답 보기</summary>
+<summary>Show Answer</summary>
 
-만약 인터럽트가 활성화된 상태에서 spinlock을 잡으면:
+If a spinlock is acquired with interrupts enabled:
 
-1. CPU가 spinlock A를 잡음
-2. 타이머 인터럽트 발생 -> 인터럽트 핸들러 실행
-3. 인터럽트 핸들러가 spinlock A를 잡으려고 시도
-4. **같은 CPU**에서 이미 A를 잡고 있으므로 영원히 spin -> Deadlock!
+1. CPU acquires spinlock A
+2. Timer interrupt fires -> interrupt handler executes
+3. Interrupt handler tries to acquire spinlock A
+4. Since the **same CPU** already holds A, it spins forever -> Deadlock!
 
-이것은 단일 CPU에서도 발생하는 deadlock입니다. `push_off()`로 인터럽트를 비활성화하면 lock 보유 중에 인터럽트 핸들러가 실행되지 않아 이 문제를 방지합니다.
+This is a deadlock that can occur even on a single CPU. Disabling interrupts with `push_off()` prevents the interrupt handler from executing while the lock is held, avoiding this problem.
 
-또한 `holding(lk)` 검사는 같은 lock을 재귀적으로 잡는 프로그래밍 실수를 감지합니다.
+Additionally, the `holding(lk)` check detects programming errors where the same lock is acquired recursively.
 
 </details>
 
 ---
 
-## 요약 및 핵심 정리
+## Summary and Key Takeaways
 
-### Deadlock 4가지 조건과 해결 방법
+### Deadlock 4 Conditions and Solutions
 
-| 조건 | 해결 방법 | 이번 실습에서의 예시 |
-|------|----------|---------------------|
-| Mutual Exclusion | (일반적으로 제거 불가) | - |
+| Condition | Solution | Example in this lab |
+|-----------|----------|---------------------|
+| Mutual Exclusion | (Generally cannot be removed) | - |
 | Hold & Wait | trylock + back-off | Exercise 3: `deadlock_fix_trylock.c` |
-| No Preemption | (일반적으로 제거 불가) | - |
+| No Preemption | (Generally cannot be removed) | - |
 | Circular Wait | **Lock ordering** | Exercise 2: `deadlock_fix_ordering.c` |
 
-### xv6의 Deadlock 방지 전략
+### xv6's Deadlock Prevention Strategies
 
-1. **Lock ordering**: 전역적 lock 순서를 정의하고 항상 준수
-   - 예: `wait_lock` -> `p->lock`
-   - 예: `bcache.lock` -> `buf->lock` (spinlock -> sleeplock)
+1. **Lock ordering**: Define a global lock order and always follow it
+   - Example: `wait_lock` -> `p->lock`
+   - Example: `bcache.lock` -> `buf->lock` (spinlock -> sleeplock)
 
-2. **인터럽트 비활성화**: spinlock 보유 중 인터럽트를 끔
+2. **Disabling interrupts**: Disable interrupts while holding a spinlock
    - `acquire()` -> `push_off()` -> `intr_off()`
 
-3. **지연된 kill**: 프로세스를 즉시 종료하지 않고 플래그만 설정
-   - lock을 안전하게 정리할 수 있는 시점에서 종료
+3. **Deferred kill**: Do not immediately terminate a process; only set a flag
+   - Terminate at a point where locks can be safely cleaned up
 
-4. **Holding 검사**: 같은 lock을 중복 획득하려 하면 panic
+4. **Holding check**: Panic if trying to acquire the same lock twice
    - `if(holding(lk)) panic("acquire");`
 
-### 핵심 교훈
+### Key Lessons
 
-- **Lock ordering은 가장 실용적이고 널리 사용되는 deadlock 방지 기법**입니다.
-- xv6 커널은 코드 주석과 컨벤션으로 lock 순서를 문서화합니다.
-- 프로세스 kill처럼 복잡한 상황에서는 **lock을 안전하게 정리할 수 있는 시점까지 동작을 지연**시키는 것이 중요합니다.
-- 실제 운영체제(Linux 등)에서도 이러한 원리가 동일하게 적용됩니다.
+- **Lock ordering is the most practical and widely used deadlock prevention technique**.
+- The xv6 kernel documents lock ordering through code comments and conventions.
+- In complex situations like process kill, it is important to **defer actions until a point where locks can be safely cleaned up**.
+- These same principles apply in real operating systems (Linux, etc.) as well.

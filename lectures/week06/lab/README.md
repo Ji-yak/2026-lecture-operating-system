@@ -1,26 +1,26 @@
-# Week 6 Lab: CPU Scheduling - Context Switching 이해
+# Week 6 Lab: CPU Scheduling - Understanding Context Switching
 
-> 소요 시간: ~50분
-> 선수 지식: 프로세스 상태, 레지스터, 스택의 개념
-> 준비물: xv6-riscv 빌드 환경 (QEMU + RISC-V toolchain)
+> Duration: ~50 minutes
+> Prerequisites: Concepts of process states, registers, and stacks
+> Requirements: xv6-riscv build environment (QEMU + RISC-V toolchain)
 
-## 학습 목표
+## Learning Objectives
 
-- xv6의 context switch 메커니즘을 어셈블리 수준에서 이해한다.
-- `scheduler()` 함수의 동작 원리를 파악하고, round-robin 스케줄링을 관찰한다.
-- `sleep`/`wakeup` 메커니즘이 실제로 어떻게 프로세스를 전환하는지 추적한다.
+- Understand xv6's context switch mechanism at the assembly level.
+- Grasp the operating principles of the `scheduler()` function and observe round-robin scheduling.
+- Trace how the `sleep`/`wakeup` mechanism actually switches between processes.
 
 ---
 
-## 실습 1: swtch.S 코드 분석 (~10분)
+## Exercise 1: Analyzing swtch.S Code (~10 min)
 
-### 배경
+### Background
 
-xv6에서 context switch는 `swtch.S`라는 어셈블리 파일 하나로 구현된다. 이 함수는 현재 실행 중인 커널 스레드의 레지스터를 저장하고, 다음에 실행할 커널 스레드의 레지스터를 복원한다.
+In xv6, context switching is implemented in a single assembly file called `swtch.S`. This function saves the registers of the currently running kernel thread and restores the registers of the next kernel thread to be executed.
 
-### context 구조체 확인
+### Examining the context Struct
 
-`kernel/proc.h`를 열어 `struct context`를 확인하자:
+Open `kernel/proc.h` and examine `struct context`:
 
 ```c
 // Saved registers for kernel context switches.
@@ -44,13 +44,13 @@ struct context {
 };
 ```
 
-**질문**: 왜 `ra`(return address)와 `sp`(stack pointer), 그리고 callee-saved 레지스터(s0-s11)만 저장할까? caller-saved 레지스터(t0-t6, a0-a7)는 왜 저장하지 않을까?
+**Question**: Why does it only save `ra` (return address), `sp` (stack pointer), and callee-saved registers (s0-s11)? Why aren't caller-saved registers (t0-t6, a0-a7) saved?
 
-**답**: `swtch`는 C 함수 호출 규약(calling convention)에 따라 호출된다. caller-saved 레지스터는 호출자(caller)가 이미 스택에 저장했으므로, `swtch`는 callee-saved 레지스터만 저장하면 된다. 이것은 RISC-V calling convention을 활용한 최적화이다.
+**Answer**: `swtch` is called following the C calling convention. Caller-saved registers have already been saved on the stack by the caller, so `swtch` only needs to save the callee-saved registers. This is an optimization that leverages the RISC-V calling convention.
 
-### swtch.S 분석
+### Analyzing swtch.S
 
-`kernel/swtch.S`를 열어보자:
+Open `kernel/swtch.S`:
 
 ```asm
 # Context switch
@@ -91,69 +91,69 @@ swtch:
         ld s10, 96(a1)      # s10 = new->s10
         ld s11, 104(a1)     # s11 = new->s11
 
-        ret                  # pc = ra (new->ra로 점프)
+        ret                  # pc = ra (jump to new->ra)
 ```
 
-### 핵심 이해 포인트
+### Key Understanding Points
 
-1. **`a0`** = 첫 번째 인자 = `old` context 포인터 (현재 프로세스)
-2. **`a1`** = 두 번째 인자 = `new` context 포인터 (다음 프로세스)
-3. **`sd`** (store doubleword): 레지스터 값을 메모리에 저장
-4. **`ld`** (load doubleword): 메모리에서 레지스터로 값 복원
-5. **`ret`**: `ra` 레지스터의 주소로 점프 -- 이때 `ra`는 이미 `new->ra`로 교체된 상태!
+1. **`a0`** = first argument = `old` context pointer (current process)
+2. **`a1`** = second argument = `new` context pointer (next process)
+3. **`sd`** (store doubleword): saves register value to memory
+4. **`ld`** (load doubleword): restores value from memory to register
+5. **`ret`**: jumps to the address in the `ra` register -- at this point, `ra` has already been replaced with `new->ra`!
 
-### 실습 과제
+### Lab Assignment
 
-아래 다이어그램을 종이에 그려보자. 프로세스 A에서 프로세스 B로 전환되는 과정을 단계별로 표시하라.
+Draw the following diagram on paper. Illustrate step by step the process of switching from Process A to Process B.
 
 ```
-프로세스 A (running)          scheduler              프로세스 B (runnable)
+Process A (running)            scheduler              Process B (runnable)
      |                          |                         |
      | yield()                  |                         |
      |   sched()                |                         |
      |     swtch(A->ctx,        |                         |
      |           cpu->ctx) ---->|                         |
-     |                          | (A의 레지스터 저장됨)    |
+     |                          | (A's registers saved)   |
      |                          |                         |
      |                          | scheduler loop...       |
-     |                          | B를 발견 (RUNNABLE)     |
+     |                          | Found B (RUNNABLE)      |
      |                          |                         |
      |                          | swtch(cpu->ctx,         |
      |                          |       B->ctx) --------->|
-     |                          |                         | (B의 레지스터 복원됨)
-     |                          |                         | ret -> B가 마지막으로
-     |                          |                         |        sched()를 호출한
-     |                          |                         |        지점으로 복귀
+     |                          |                         | (B's registers restored)
+     |                          |                         | ret -> returns to the
+     |                          |                         |        point where B last
+     |                          |                         |        called sched()
 ```
 
-**질문**: `swtch`의 `ret` 명령어가 실행되면 어디로 점프하는가?
+**Question**: Where does execution jump to when the `ret` instruction of `swtch` is executed?
 
-**답**: `new->ra`에 저장된 주소로 점프한다. 이전에 해당 프로세스가 `swtch`를 호출했던 지점 바로 다음, 즉 `sched()` 함수 내의 `swtch` 호출 다음 줄로 돌아간다. 새로 생성된 프로세스의 경우 `forkret()` 함수의 시작 주소로 점프한다 (`allocproc`에서 `p->context.ra = (uint64)forkret`으로 설정하기 때문).
+**Answer**: It jumps to the address stored in `new->ra`. It returns to the line right after the `swtch` call inside the `sched()` function, where the process previously called `swtch`. For a newly created process, it jumps to the start address of the `forkret()` function (because `allocproc` sets `p->context.ra = (uint64)forkret`).
 
 ---
 
-## 실습 2: scheduler()에 printf 추가 (~15분)
+## Exercise 2: Adding printf to scheduler() (~15 min)
 
-### 목표
+### Goal
 
-스케줄러가 어떤 순서로 프로세스를 선택하는지 직접 눈으로 확인한다.
+Directly observe the order in which the scheduler selects processes.
 
-### 패치 적용
+### Applying the Patch
 
-제공된 `scheduler_trace.patch` 파일을 xv6-riscv 디렉토리에 적용한다:
+Apply the provided `scheduler_trace.patch` file to the xv6-riscv directory:
 
 ```bash
 cd /path/to/xv6-riscv
 git apply /path/to/materials/week6/lab/scheduler_trace.patch
 ```
 
-이 패치는 `scheduler()` 함수에 다음과 같은 코드를 추가한다:
+This patch adds the following code to the `scheduler()` function:
 
 ```c
-// kernel/proc.c - scheduler() 함수 내부
+// kernel/proc.c - inside the scheduler() function
 
 if(p->state == RUNNABLE) {
-  // === 추가된 트레이스 코드 ===
+  // === Added trace code ===
   printf("[sched] cpu%d: switch to pid=%d name=%s\n",
          cpuid(), p->pid, p->name);
   // ===========================
@@ -166,9 +166,9 @@ if(p->state == RUNNABLE) {
 }
 ```
 
-### 패치를 직접 적용하지 않고 수동으로 수정하는 방법
+### Manually Modifying Instead of Applying the Patch
 
-패치 대신 직접 `kernel/proc.c`를 편집해도 된다. `scheduler()` 함수를 찾아서 `if(p->state == RUNNABLE)` 블록 안에 `printf`를 추가하면 된다:
+Instead of using the patch, you can directly edit `kernel/proc.c`. Find the `scheduler()` function and add the `printf` inside the `if(p->state == RUNNABLE)` block:
 
 ```c
 void
@@ -186,7 +186,7 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // 여기에 추가!
+        // Add here!
         printf("[sched] cpu%d: switch to pid=%d name=%s\n",
                cpuid(), p->pid, p->name);
 
@@ -205,16 +205,16 @@ scheduler(void)
 }
 ```
 
-### 빌드 및 실행
+### Build and Run
 
 ```bash
 make clean
 make qemu
 ```
 
-### 예상 출력
+### Expected Output
 
-xv6가 부팅되면 다음과 같은 메시지가 나타난다:
+When xv6 boots, messages like the following will appear:
 
 ```
 [sched] cpu0: switch to pid=1 name=
@@ -225,46 +225,46 @@ xv6가 부팅되면 다음과 같은 메시지가 나타난다:
 ...
 ```
 
-**참고**: CPU가 여러 개인 경우 (기본 QEMU 설정에서 CPUS=3) 여러 CPU의 출력이 섞여서 나온다. 출력이 너무 많으면 `CPUS=1`로 빌드하자:
+**Note**: When there are multiple CPUs (default QEMU configuration uses CPUS=3), output from different CPUs will be interleaved. If there is too much output, build with `CPUS=1`:
 
 ```bash
 make clean
 make CPUS=1 qemu
 ```
 
-### 관찰 포인트
+### Observation Points
 
-1. `pid=1`은 `init` 프로세스이다. 부팅 시 가장 먼저 스케줄링된다.
-2. `init`이 `sh`(shell)를 fork하면 `pid=2`인 `sh`가 나타난다.
-3. shell이 키 입력을 기다릴 때는 SLEEPING 상태이므로 스케줄링 되지 않는다.
+1. `pid=1` is the `init` process. It is the first process scheduled at boot time.
+2. When `init` forks `sh` (shell), `sh` with `pid=2` appears.
+3. When the shell is waiting for key input, it is in the SLEEPING state and will not be scheduled.
 
-### 실습 과제
+### Lab Assignment
 
-`printf` 출력을 보면서 다음 질문에 답하라:
+Observe the `printf` output and answer the following questions:
 
-1. 부팅 직후 어떤 프로세스가 가장 먼저 스케줄링되는가?
-2. shell 프롬프트가 나타난 후, 아무 키도 누르지 않으면 스케줄러 출력이 멈추는가? 왜 그런가?
-3. `CPUS=1`일 때와 `CPUS=3`일 때 출력이 어떻게 다른가?
+1. Which process is scheduled first right after booting?
+2. After the shell prompt appears, does the scheduler output stop if you don't press any key? Why?
+3. How does the output differ between `CPUS=1` and `CPUS=3`?
 
 ---
 
-## 실습 3: Round-Robin 동작 확인 (~15분)
+## Exercise 3: Observing Round-Robin Behavior (~15 min)
 
-### 목표
+### Goal
 
-여러 프로세스가 동시에 실행될 때 round-robin 스케줄링이 어떻게 동작하는지 확인한다.
+Observe how round-robin scheduling works when multiple processes are running simultaneously.
 
-### 테스트 방법
+### Test Method
 
-xv6 셸에서 다음 명령어를 실행하여 CPU-bound 프로세스 여러 개를 동시에 실행한다:
+In the xv6 shell, run the following command to execute multiple CPU-bound processes concurrently:
 
 ```
 $ spin &; spin &; spin &
 ```
 
-**참고**: `spin`은 무한 루프를 도는 간단한 프로그램이다. xv6에 `spin`이 없다면, 다음과 같은 간단한 사용자 프로그램을 만들 수 있다. (이 과정은 건너뛰고 `cat README`와 같이 이미 있는 명령어를 여러 개 백그라운드로 실행해도 된다.)
+**Note**: `spin` is a simple program that runs an infinite loop. If xv6 doesn't have `spin`, you can create a simple user program as follows. (You can skip this step and run existing commands like `cat README` in the background instead.)
 
-대안으로, 기존 명령어를 활용:
+Alternatively, use existing commands:
 
 ```
 $ cat README &
@@ -272,9 +272,9 @@ $ cat README &
 $ ls &
 ```
 
-### 예상 출력
+### Expected Output
 
-스케줄러 트레이스가 활성화된 상태에서, 여러 프로세스가 동시에 RUNNABLE일 때:
+With scheduler tracing enabled, when multiple processes are RUNNABLE simultaneously:
 
 ```
 [sched] cpu0: switch to pid=3 name=spin
@@ -286,43 +286,43 @@ $ ls &
 ...
 ```
 
-### 관찰 포인트
+### Observation Points
 
-스케줄러는 `proc[]` 배열을 처음부터 끝까지 순회하면서 RUNNABLE 프로세스를 찾는다:
+The scheduler iterates through the `proc[]` array from beginning to end, looking for RUNNABLE processes:
 
 ```c
 for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->state == RUNNABLE) {
-        // 이 프로세스를 실행
+        // Run this process
     }
     release(&p->lock);
 }
 ```
 
-이것이 **round-robin 스케줄링**의 가장 단순한 형태이다:
-- 배열을 순서대로 순회
-- RUNNABLE인 프로세스를 발견하면 실행
-- 타이머 인터럽트에 의해 다시 스케줄러로 돌아옴
-- 배열의 처음부터 다시 순회
+This is the simplest form of **round-robin scheduling**:
+- Iterate through the array in order
+- Run a process when a RUNNABLE one is found
+- Return to the scheduler via timer interrupt
+- Iterate from the beginning of the array again
 
-### 실습 과제
+### Lab Assignment
 
-1. 트레이스 출력에서 pid의 패턴을 관찰하라. 정말 순환(round-robin) 패턴인가?
-2. 이 구현의 단점은 무엇인가? (힌트: `proc[]` 배열의 앞쪽에 있는 프로세스가 유리한가?)
-3. **도전**: `scheduler()` 함수를 수정하여, 마지막으로 실행한 프로세스의 다음 위치부터 순회를 시작하도록 변경해 보라. (힌트: 마지막 인덱스를 기억하는 변수가 필요하다.)
+1. Observe the pattern of PIDs in the trace output. Is it truly a round-robin pattern?
+2. What are the drawbacks of this implementation? (Hint: Do processes at the beginning of the `proc[]` array have an advantage?)
+3. **Challenge**: Modify the `scheduler()` function to start iterating from the position after the last executed process. (Hint: You need a variable to remember the last index.)
 
 ---
 
-## 실습 4: sleep/wakeup 동작 추적 (~10분)
+## Exercise 4: Tracing sleep/wakeup Behavior (~10 min)
 
-### 목표
+### Goal
 
-pipe를 통한 read가 블로킹될 때, `sleep`과 `wakeup`이 어떻게 동작하는지 추적한다.
+Trace how `sleep` and `wakeup` work when a read on a pipe blocks.
 
-### sleep/wakeup 메커니즘 이해
+### Understanding the sleep/wakeup Mechanism
 
-`kernel/proc.c`의 `sleep()` 함수를 살펴보자:
+Let's examine the `sleep()` function in `kernel/proc.c`:
 
 ```c
 void
@@ -334,12 +334,12 @@ sleep(void *chan, struct spinlock *lk)
   release(lk);
 
   // Go to sleep.
-  p->chan = chan;          // 어떤 이벤트를 기다리는지 기록
-  p->state = SLEEPING;    // 상태를 SLEEPING으로 변경
+  p->chan = chan;          // Record which event to wait for
+  p->state = SLEEPING;    // Change state to SLEEPING
 
-  sched();                // 스케줄러로 전환 (CPU 양보)
+  sched();                // Switch to scheduler (yield CPU)
 
-  // 여기서 깨어남 (wakeup에 의해)
+  // Woken up here (by wakeup)
   p->chan = 0;
 
   release(&p->lock);
@@ -347,7 +347,7 @@ sleep(void *chan, struct spinlock *lk)
 }
 ```
 
-`wakeup()` 함수:
+The `wakeup()` function:
 
 ```c
 void
@@ -359,7 +359,7 @@ wakeup(void *chan)
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
-        p->state = RUNNABLE;  // 깨워서 다시 실행 가능하게
+        p->state = RUNNABLE;  // Wake up and make runnable again
       }
       release(&p->lock);
     }
@@ -367,9 +367,9 @@ wakeup(void *chan)
 }
 ```
 
-### pipe에서의 sleep/wakeup
+### sleep/wakeup in Pipes
 
-`kernel/pipe.c`의 `piperead()` 함수를 보자:
+Let's look at the `piperead()` function in `kernel/pipe.c`:
 
 ```c
 int
@@ -380,23 +380,23 @@ piperead(struct pipe *pi, uint64 addr, int n)
   char ch;
 
   acquire(&pi->lock);
-  while(pi->nread == pi->nwrite && pi->writeopen){  // 읽을 데이터가 없으면
+  while(pi->nread == pi->nwrite && pi->writeopen){  // If no data to read
     if(killed(pr)){
       release(&pi->lock);
       return -1;
     }
-    sleep(&pi->nread, &pi->lock);   // sleep! (채널: &pi->nread)
+    sleep(&pi->nread, &pi->lock);   // sleep! (channel: &pi->nread)
   }
-  // ... 데이터 읽기 ...
-  wakeup(&pi->nwrite);              // writer를 깨움
+  // ... read data ...
+  wakeup(&pi->nwrite);              // Wake up the writer
   release(&pi->lock);
   return i;
 }
 ```
 
-### 추적 실습
+### Tracing Exercise
 
-`sleep()` 함수에 다음 printf를 추가해 보자 (직접 수정):
+Add the following printf statements to the `sleep()` function (edit directly):
 
 ```c
 void
@@ -407,7 +407,7 @@ sleep(void *chan, struct spinlock *lk)
   acquire(&p->lock);
   release(lk);
 
-  // 추가된 트레이스
+  // Added trace
   printf("[sleep] pid=%d name=%s chan=%p\n", p->pid, p->name, chan);
 
   p->chan = chan;
@@ -415,7 +415,7 @@ sleep(void *chan, struct spinlock *lk)
   sched();
   p->chan = 0;
 
-  // 추가된 트레이스
+  // Added trace
   printf("[wakeup] pid=%d name=%s\n", p->pid, p->name);
 
   release(&p->lock);
@@ -423,15 +423,15 @@ sleep(void *chan, struct spinlock *lk)
 }
 ```
 
-### 테스트
+### Test
 
-xv6 셸에서 pipe를 사용하는 명령을 실행한다:
+In the xv6 shell, run a command that uses a pipe:
 
 ```
 $ echo hello | cat
 ```
 
-### 예상 출력
+### Expected Output
 
 ```
 [sleep] pid=3 name=cat chan=0x________
@@ -441,39 +441,39 @@ $ echo hello | cat
 hello
 ```
 
-흐름 해석:
-1. `cat`이 pipe에서 read하려 하지만, 아직 데이터가 없으므로 `sleep` 호출
-2. 스케줄러가 `echo`를 실행
-3. `echo`가 pipe에 "hello"를 write하고, `wakeup(&pi->nread)` 호출
-4. `cat`이 깨어나서 데이터를 읽고 출력
+Flow interpretation:
+1. `cat` tries to read from the pipe, but there is no data yet, so it calls `sleep`
+2. The scheduler runs `echo`
+3. `echo` writes "hello" to the pipe and calls `wakeup(&pi->nread)`
+4. `cat` wakes up, reads the data, and prints it
 
-### 실습 과제
+### Lab Assignment
 
-1. 출력에서 `chan` 주소가 의미하는 것은 무엇인가?
-2. `wakeup`이 호출된 후, 깨어난 프로세스가 바로 실행되는가? 아니면 스케줄러를 거쳐야 하는가?
-3. `sleep`과 `wakeup`에서 lock의 역할은 무엇인가? (lost wakeup 문제와 연결하여 생각하라)
+1. What does the `chan` address in the output represent?
+2. After `wakeup` is called, does the woken process run immediately? Or must it go through the scheduler?
+3. What is the role of the lock in `sleep` and `wakeup`? (Think about this in relation to the lost wakeup problem)
 
 ---
 
-## 정리 및 핵심 요약
+## Summary and Key Takeaways
 
-| 개념 | 핵심 포인트 |
+| Concept | Key Points |
 |------|------------|
-| **swtch.S** | callee-saved 레지스터만 저장/복원. `ret`으로 새 프로세스의 실행 지점으로 점프 |
-| **scheduler()** | proc 배열을 순회하며 RUNNABLE 프로세스를 찾아 실행 (round-robin) |
-| **yield/sched** | 프로세스가 CPU를 양보할 때 호출. 상태를 RUNNABLE로 바꾸고 swtch |
-| **sleep/wakeup** | 조건 변수와 유사. 채널(chan) 기반으로 프로세스를 재우고 깨움 |
+| **swtch.S** | Only saves/restores callee-saved registers. Jumps to the new process's execution point via `ret` |
+| **scheduler()** | Iterates through the proc array to find and run RUNNABLE processes (round-robin) |
+| **yield/sched** | Called when a process yields the CPU. Changes state to RUNNABLE and calls swtch |
+| **sleep/wakeup** | Similar to condition variables. Puts processes to sleep and wakes them based on channels (chan) |
 
-## 수정사항 되돌리기
+## Reverting Changes
 
-실습이 끝나면 수정한 코드를 되돌려 놓자:
+When the lab is finished, revert the modified code:
 
 ```bash
 cd /path/to/xv6-riscv
 git checkout kernel/proc.c
 ```
 
-또는 패치를 역적용:
+Or reverse-apply the patch:
 
 ```bash
 git apply -R /path/to/materials/week6/lab/scheduler_trace.patch

@@ -78,7 +78,6 @@ layout: section
 
 # Midterm & Final Exam (Written)
 
-- **Open-book**
 - **Handwritten** (digital devices not allowed)
 - **1 hour** each
 

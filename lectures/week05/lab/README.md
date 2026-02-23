@@ -1,44 +1,44 @@
-# Week 5 Lab: Thread & Concurrency 2 - 동기화 심화
+# Week 5 Lab: Thread & Concurrency 2 - Advanced Synchronization
 
-> 수업 중 실습 (~50분)
+> In-class lab (~50 minutes)
 >
-> 교재 참고: xv6 textbook Ch 6.6-6.10 (Locking 심화), Ch 9 (Concurrency Revisited)
+> Textbook reference: xv6 textbook Ch 6.6-6.10 (Advanced Locking), Ch 9 (Concurrency Revisited)
 
 ---
 
-## 학습 목표
+## Learning Objectives
 
-- Condition variable을 활용한 스레드 간 통신 패턴을 이해한다
-- Producer-Consumer 문제를 올바르게 구현할 수 있다
-- xv6 커널의 spinlock 구현을 분석하고 각 함수의 역할을 설명할 수 있다
-- xv6 kalloc.c에서 lock이 보호하는 대상과 그 필요성을 설명할 수 있다
+- Understand thread communication patterns using condition variables
+- Correctly implement the Producer-Consumer problem
+- Analyze the spinlock implementation in the xv6 kernel and explain the role of each function
+- Explain what the lock in xv6's kalloc.c protects and why it is necessary
 
 ---
 
-## 실습 1: Producer-Consumer 문제 구현 (15분)
+## Exercise 1: Implementing the Producer-Consumer Problem (15 min)
 
-### 배경
+### Background
 
-Producer-Consumer는 동기화의 대표적인 문제이다. 공유 버퍼를 사이에 두고:
-- **Producer**: 데이터를 생성하여 버퍼에 넣는다
-- **Consumer**: 버퍼에서 데이터를 꺼내 처리한다
+Producer-Consumer is a classic synchronization problem. With a shared buffer in between:
+- **Producer**: Generates data and places it into the buffer
+- **Consumer**: Retrieves data from the buffer and processes it
 
-핵심 조건:
-- 버퍼가 가득 차면 producer는 **대기**해야 한다
-- 버퍼가 비어 있으면 consumer는 **대기**해야 한다
-- 버퍼 접근 시 **상호 배제**가 보장되어야 한다
+Key conditions:
+- If the buffer is full, the producer must **wait**
+- If the buffer is empty, the consumer must **wait**
+- **Mutual exclusion** must be guaranteed when accessing the buffer
 
-### 사용할 동기화 도구
+### Synchronization Tools Used
 
-| 도구 | 역할 |
+| Tool | Role |
 |------|------|
-| `pthread_mutex_t` | 공유 데이터(버퍼)에 대한 상호 배제 |
-| `pthread_cond_t not_full` | 버퍼에 빈 공간이 생겼음을 알림 |
-| `pthread_cond_t not_empty` | 버퍼에 데이터가 들어왔음을 알림 |
+| `pthread_mutex_t` | Mutual exclusion for shared data (buffer) |
+| `pthread_cond_t not_full` | Notifies that space is available in the buffer |
+| `pthread_cond_t not_empty` | Notifies that data has been placed in the buffer |
 
-### 실습 진행
+### Lab Walkthrough
 
-1. 예제 코드를 컴파일하고 실행한다:
+1. Compile and run the example code:
 
 ```bash
 cd examples/
@@ -46,15 +46,15 @@ gcc -Wall -pthread -o producer_consumer producer_consumer.c
 ./producer_consumer
 ```
 
-2. `producer_consumer.c`를 열고 다음 부분을 중점적으로 확인한다:
+2. Open `producer_consumer.c` and focus on the following sections:
 
-#### (a) `buffer_put` 함수 - Producer 동작
+#### (a) `buffer_put` Function - Producer Operation
 
 ```c
 void buffer_put(bounded_buffer_t *buf, int item) {
     pthread_mutex_lock(&buf->mutex);
 
-    // 왜 if가 아니라 while인가?
+    // Why while instead of if?
     while (buf->count == BUFFER_SIZE) {
         pthread_cond_wait(&buf->not_full, &buf->mutex);
     }
@@ -68,7 +68,7 @@ void buffer_put(bounded_buffer_t *buf, int item) {
 }
 ```
 
-#### (b) `buffer_get` 함수 - Consumer 동작
+#### (b) `buffer_get` Function - Consumer Operation
 
 ```c
 int buffer_get(bounded_buffer_t *buf) {
@@ -89,85 +89,85 @@ int buffer_get(bounded_buffer_t *buf) {
 }
 ```
 
-### 생각해볼 점
+### Points to Consider
 
-- `pthread_cond_wait`에서 조건을 확인할 때 `if`가 아닌 `while`을 사용하는 이유는?
-  - 힌트: **spurious wakeup**, Mesa semantics
-- `pthread_cond_wait`가 호출되면 mutex에 어떤 일이 발생하는가?
-  - 힌트: atomically unlock + sleep, 깨어나면 자동 relock
-- `signal`과 `broadcast`의 차이는?
+- Why is `while` used instead of `if` when checking the condition in `pthread_cond_wait`?
+  - Hint: **spurious wakeup**, Mesa semantics
+- What happens to the mutex when `pthread_cond_wait` is called?
+  - Hint: atomically unlock + sleep, automatically relock upon wakeup
+- What is the difference between `signal` and `broadcast`?
 
 ---
 
-## 실습 2: 다중 Producer/Consumer Bounded Buffer (10분)
+## Exercise 2: Multi-Producer/Consumer Bounded Buffer (10 min)
 
-### 실습 진행
+### Lab Walkthrough
 
-1. 컴파일 및 실행:
+1. Compile and run:
 
 ```bash
 gcc -Wall -pthread -o bounded_buffer bounded_buffer.c
 ./bounded_buffer
 ```
 
-2. `bounded_buffer.c`는 **3개의 Producer + 3개의 Consumer**가 동시에 동작한다. 다음을 관찰한다:
+2. `bounded_buffer.c` has **3 Producers + 3 Consumers** operating concurrently. Observe the following:
 
-- 버퍼 크기가 4로 작기 때문에 대기가 빈번하게 발생
-- 모든 아이템이 정확히 한 번씩 생산/소비됨을 검증
+- Since the buffer size is only 4, waiting occurs frequently
+- Verify that all items are produced/consumed exactly once
 
-3. **실험**: 코드를 수정해서 다음을 시도해 본다:
+3. **Experiment**: Modify the code and try the following:
 
-| 변경 | 예상 결과 |
+| Change | Expected Result |
 |------|-----------|
-| `while`을 `if`로 바꾸기 | race condition 발생 가능 (assert 실패) |
-| `signal`을 `broadcast`로 바꾸기 | 정상 동작, 불필요한 wakeup 증가 |
-| `BUFFER_SIZE`를 1로 변경 | 교대 실행, 동시성 감소 |
-| Consumer 수를 1로 줄이기 | 소비 병목, 생산자 대기 증가 |
+| Replace `while` with `if` | Possible race condition (assert failure) |
+| Replace `signal` with `broadcast` | Works correctly, but unnecessary wakeups increase |
+| Change `BUFFER_SIZE` to 1 | Alternating execution, reduced concurrency |
+| Reduce number of Consumers to 1 | Consumption bottleneck, increased producer waiting |
 
 ---
 
-## 실습 3: xv6 kernel/spinlock.c 코드 분석 (15분)
+## Exercise 3: xv6 kernel/spinlock.c Code Analysis (15 min)
 
-> 파일 위치: `xv6-riscv/kernel/spinlock.c`
+> File location: `xv6-riscv/kernel/spinlock.c`
 
-xv6의 spinlock 구현을 함께 읽으며 각 함수의 역할을 분석한다.
+Let's read through xv6's spinlock implementation together and analyze the role of each function.
 
-### 3-1. `acquire` 함수
+### 3-1. `acquire` Function
 
 ```c
 void acquire(struct spinlock *lk)
 {
-    push_off();   // (1) 인터럽트 비활성화
+    push_off();   // (1) Disable interrupts
     if(holding(lk))
         panic("acquire");
 
-    // (2) atomic swap으로 lock 획득 시도
+    // (2) Attempt to acquire lock via atomic swap
     while(__sync_lock_test_and_set(&lk->locked, 1) != 0)
         ;
 
-    // (3) memory fence
+    // (3) Memory fence
     __sync_synchronize();
 
-    // (4) 디버깅 정보 기록
+    // (4) Record debugging information
     lk->cpu = mycpu();
 }
 ```
 
-#### 분석 포인트
+#### Analysis Points
 
-| 단계 | 코드 | 질문 |
+| Step | Code | Question |
 |------|------|------|
-| (1) | `push_off()` | 왜 lock 획득 전에 인터럽트를 꺼야 하는가? |
-| (2) | `__sync_lock_test_and_set` | 이 atomic 연산이 test-and-set과 어떻게 다른가? |
-| (3) | `__sync_synchronize` | memory fence가 없으면 어떤 문제가 발생하는가? |
-| (4) | `lk->cpu = mycpu()` | 이 정보는 어디에서 사용되는가? |
+| (1) | `push_off()` | Why must interrupts be disabled before acquiring the lock? |
+| (2) | `__sync_lock_test_and_set` | How does this atomic operation differ from test-and-set? |
+| (3) | `__sync_synchronize` | What problems can arise without a memory fence? |
+| (4) | `lk->cpu = mycpu()` | Where is this information used? |
 
-**인터럽트를 꺼야 하는 이유 (교재 Ch 6.6)**:
-- CPU가 lock을 보유한 상태에서 인터럽트 발생
-- 인터럽트 핸들러가 같은 lock을 acquire 시도
-- 자기 자신이 보유한 lock을 기다리며 영원히 spinning -> **deadlock**
+**Why interrupts must be disabled (textbook Ch 6.6)**:
+- An interrupt occurs while the CPU holds the lock
+- The interrupt handler attempts to acquire the same lock
+- It spins forever waiting for a lock held by itself -> **deadlock**
 
-### 3-2. `release` 함수
+### 3-2. `release` Function
 
 ```c
 void release(struct spinlock *lk)
@@ -177,15 +177,15 @@ void release(struct spinlock *lk)
 
     lk->cpu = 0;
 
-    __sync_synchronize();              // (1) memory fence
-    __sync_lock_release(&lk->locked);  // (2) atomic: locked = 0
+    __sync_synchronize();              // (1) Memory fence
+    __sync_lock_release(&lk->locked);  // (2) Atomic: locked = 0
 
-    pop_off();                         // (3) 인터럽트 복원
+    pop_off();                         // (3) Restore interrupts
 }
 ```
 
-**질문**: `__sync_synchronize()`가 `__sync_lock_release` **앞에** 있어야 하는 이유는?
-- 힌트: critical section 내부의 store가 lock 해제 이후로 재배치되면 안 된다
+**Question**: Why must `__sync_synchronize()` come **before** `__sync_lock_release`?
+- Hint: Stores inside the critical section must not be reordered past the lock release
 
 ### 3-3. `push_off` / `pop_off`
 
@@ -194,8 +194,8 @@ void push_off(void) {
     int old = intr_get();
     intr_off();
     if(mycpu()->noff == 0)
-        mycpu()->intena = old;    // 최초 push 시 이전 상태 저장
-    mycpu()->noff += 1;           // 중첩 횟수 증가
+        mycpu()->intena = old;    // Save previous state on first push
+    mycpu()->noff += 1;           // Increment nesting count
 }
 
 void pop_off(void) {
@@ -206,25 +206,25 @@ void pop_off(void) {
         panic("pop_off");
     c->noff -= 1;
     if(c->noff == 0 && c->intena)
-        intr_on();                // 모든 lock 해제 후 복원
+        intr_on();                // Restore only after all locks released
 }
 ```
 
-**핵심 개념: 중첩 가능한 인터럽트 비활성화**
+**Key Concept: Nestable Interrupt Disabling**
 
-- lock을 중첩 획득하면 (`push_off` 여러 번) 인터럽트를 바로 켜면 안 됨
-- `noff` 카운터로 추적하여 마지막 lock 해제 시에만 인터럽트 복원
-- `intena`는 최초 `push_off` 호출 시점의 인터럽트 상태를 기억
+- When locks are acquired in a nested manner (multiple `push_off` calls), interrupts must not be re-enabled immediately
+- Tracked using the `noff` counter so interrupts are only restored when the last lock is released
+- `intena` remembers the interrupt state at the time of the first `push_off` call
 
-**질문**: lock A를 acquire한 후 lock B를 acquire하면 `noff`는 몇인가? lock B를 release할 때 인터럽트가 켜지는가?
+**Question**: If lock A is acquired and then lock B is acquired, what is the value of `noff`? Are interrupts re-enabled when lock B is released?
 
 ---
 
-## 실습 4: xv6 kernel/kalloc.c에서 Lock 역할 분석 (10분)
+## Exercise 4: Analyzing the Role of Locks in xv6 kernel/kalloc.c (10 min)
 
-> 파일 위치: `xv6-riscv/kernel/kalloc.c`
+> File location: `xv6-riscv/kernel/kalloc.c`
 
-### 구조 분석
+### Structure Analysis
 
 ```c
 struct run {
@@ -237,11 +237,11 @@ struct {
 } kmem;
 ```
 
-- `kmem`은 전체 시스템에 **하나만** 존재하는 전역 변수
-- `freelist`는 사용 가능한 물리 메모리 페이지의 연결 리스트
-- `lock`은 이 연결 리스트를 보호
+- `kmem` is a global variable with only **one instance** in the entire system
+- `freelist` is a linked list of available physical memory pages
+- `lock` protects this linked list
 
-### kfree 분석
+### kfree Analysis
 
 ```c
 void kfree(void *pa) {
@@ -250,28 +250,28 @@ void kfree(void *pa) {
     if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
         panic("kfree");
 
-    memset(pa, 1, PGSIZE);       // dangling reference 감지용 쓰레기값 채우기
+    memset(pa, 1, PGSIZE);       // Fill with junk to detect dangling references
 
     r = (struct run*)pa;
 
-    acquire(&kmem.lock);          // --- critical section 시작 ---
-    r->next = kmem.freelist;      // 리스트 head에 삽입
+    acquire(&kmem.lock);          // --- critical section start ---
+    r->next = kmem.freelist;      // Insert at head of list
     kmem.freelist = r;
-    release(&kmem.lock);          // --- critical section 끝 ---
+    release(&kmem.lock);          // --- critical section end ---
 }
 ```
 
-### kalloc 분석
+### kalloc Analysis
 
 ```c
 void *kalloc(void) {
     struct run *r;
 
-    acquire(&kmem.lock);          // --- critical section 시작 ---
+    acquire(&kmem.lock);          // --- critical section start ---
     r = kmem.freelist;
     if(r)
-        kmem.freelist = r->next;  // 리스트 head에서 제거
-    release(&kmem.lock);          // --- critical section 끝 ---
+        kmem.freelist = r->next;  // Remove from head of list
+    release(&kmem.lock);          // --- critical section end ---
 
     if(r)
         memset((char*)r, 5, PGSIZE);
@@ -279,39 +279,39 @@ void *kalloc(void) {
 }
 ```
 
-### 생각해볼 점
+### Points to Consider
 
-1. **lock이 없다면 무슨 일이 발생하는가?**
-   - 두 CPU가 동시에 `kalloc`을 호출하면?
-   - 같은 페이지가 두 번 할당될 수 있다 (double allocation)
+1. **What would happen without the lock?**
+   - What if two CPUs call `kalloc` simultaneously?
+   - The same page could be allocated twice (double allocation)
 
-2. **성능 문제**:
-   - 모든 CPU가 **하나의 lock**을 공유한다
-   - CPU 수가 많아지면 `kalloc`/`kfree` 호출 시 **contention** 발생
-   - 이것이 이번 주 과제의 동기: **per-CPU free list**로 개선!
+2. **Performance issue**:
+   - All CPUs share **a single lock**
+   - As the number of CPUs increases, **contention** occurs during `kalloc`/`kfree` calls
+   - This is the motivation for this week's assignment: improve with **per-CPU free lists**!
 
-3. **memset의 위치**:
-   - `kfree`에서 `memset(pa, 1, PGSIZE)` - lock 밖에서 실행 (아직 freelist에 없음)
-   - `kalloc`에서 `memset((char*)r, 5, PGSIZE)` - lock 밖에서 실행 (이미 freelist에서 제거됨)
-   - lock의 범위를 최소화하여 성능 향상
+3. **Placement of memset**:
+   - In `kfree`, `memset(pa, 1, PGSIZE)` -- executed outside the lock (not yet on the freelist)
+   - In `kalloc`, `memset((char*)r, 5, PGSIZE)` -- executed outside the lock (already removed from the freelist)
+   - Performance is improved by minimizing the scope of the lock
 
 ---
 
-## 정리
+## Summary
 
-| 주제 | 핵심 내용 |
+| Topic | Key Points |
 |------|-----------|
-| Condition Variable | `while` 루프 + `wait`/`signal` 패턴으로 스레드 간 조건 동기화 |
-| Bounded Buffer | mutex + 2개의 cond var (`not_full`, `not_empty`) |
+| Condition Variable | Synchronize conditions between threads using `while` loop + `wait`/`signal` pattern |
+| Bounded Buffer | mutex + 2 cond vars (`not_full`, `not_empty`) |
 | xv6 spinlock | atomic swap + memory fence + interrupt disable |
-| push_off/pop_off | 중첩 가능한 인터럽트 관리 (`noff` 카운터) |
-| kalloc lock | 단일 lock이 free list를 보호, per-CPU로 개선 가능 |
+| push_off/pop_off | Nestable interrupt management (`noff` counter) |
+| kalloc lock | A single lock protects the free list; can be improved with per-CPU approach |
 
 ---
 
-## 참고 자료
+## References
 
-- xv6 textbook Chapter 6: Locking (특히 6.6-6.10)
+- xv6 textbook Chapter 6: Locking (especially 6.6-6.10)
 - xv6 textbook Chapter 9: Concurrency Revisited
 - OSTEP Chapter 30: Condition Variables
 - `man pthread_cond_wait`, `man pthread_mutex_lock`

@@ -13,7 +13,7 @@
 - [00:10–00:25] Syllabus / Grading policy
   - Assignment 10% (Quiz 5% + Take-home 5%), Midterm 30%, Final Written 30%, Final Project 30%
   - Attendance 0%, but absent ≥ 1/3 of total hours → F
-- [00:25–00:35] Assignment/Quiz details, Exam format (Open-book, handwritten, 1 hour)
+- [00:25–00:35] Assignment/Quiz details, Exam format (handwritten, 1 hour)
 - [00:35–00:50] Final project overview
   - Starting Week 9, teams of 3–4, coding agents allowed
   - OS prototype development + documentation + Week 14 presentation

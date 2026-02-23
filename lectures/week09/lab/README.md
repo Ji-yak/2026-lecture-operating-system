@@ -1,39 +1,39 @@
-# Week 9 Lab: 동기화 도구와 예제 - sleep/wakeup, pipe
+# Week 9 Lab: Synchronization Tools and Examples - sleep/wakeup, pipe
 
-## 학습 목표
+## Learning Objectives
 
-이번 실습을 마치면 다음을 이해할 수 있다:
+By the end of this lab, you will be able to:
 
-1. xv6의 `sleep()`과 `wakeup()` 메커니즘이 어떻게 프로세스 간 조정(coordination)을 구현하는지 설명할 수 있다
-2. pipe 구현에서 sleep/wakeup이 producer-consumer 패턴을 어떻게 지원하는지 분석할 수 있다
-3. pipe를 이용한 프로세스 간 통신 프로그램을 xv6에서 작성할 수 있다
-4. "lost wakeup" 문제가 왜 발생하며, sleep에 lock을 넘기는 것이 어떻게 이를 해결하는지 설명할 수 있다
+1. Explain how xv6's `sleep()` and `wakeup()` mechanisms implement inter-process coordination
+2. Analyze how sleep/wakeup supports the producer-consumer pattern in the pipe implementation
+3. Write an inter-process communication program using pipes in xv6
+4. Explain why the "lost wakeup" problem occurs and how passing a lock to sleep solves it
 
-## 배경 지식
+## Background Knowledge
 
-### sleep/wakeup이란?
+### What is sleep/wakeup?
 
-운영체제에서 프로세스가 어떤 조건이 충족될 때까지 기다려야 하는 상황은 매우 흔하다. 예를 들어:
-- pipe에서 데이터가 도착하길 기다리는 reader
-- pipe 버퍼에 공간이 생기길 기다리는 writer
-- 자식 프로세스가 종료하길 기다리는 부모 프로세스
+In operating systems, it is very common for a process to need to wait until a certain condition is met. For example:
+- A reader waiting for data to arrive in a pipe
+- A writer waiting for space to become available in a pipe buffer
+- A parent process waiting for a child process to exit
 
-이때 busy waiting(조건을 계속 확인하는 루프)은 CPU를 낭비한다. xv6는 이를 해결하기 위해 **sleep/wakeup** 메커니즘을 제공한다:
+In these cases, busy waiting (a loop that continuously checks the condition) wastes CPU. xv6 provides the **sleep/wakeup** mechanism to solve this:
 
-- **`sleep(chan, lk)`**: 현재 프로세스를 `SLEEPING` 상태로 전환하고, 채널(`chan`)에서 깨워질 때까지 CPU를 양보한다. `lk`는 조건을 보호하는 lock이다.
-- **`wakeup(chan)`**: 해당 채널에서 잠자는 모든 프로세스를 `RUNNABLE` 상태로 전환한다.
+- **`sleep(chan, lk)`**: Transitions the current process to the `SLEEPING` state and yields the CPU until it is woken up on the channel (`chan`). `lk` is the lock that protects the condition.
+- **`wakeup(chan)`**: Transitions all processes sleeping on the given channel to the `RUNNABLE` state.
 
-### 채널(channel) 개념
+### The Channel Concept
 
-sleep/wakeup에서 "채널"은 특정 조건을 식별하는 임의의 주소값이다. xv6에서는 보통 관련된 데이터 구조체의 주소를 채널로 사용한다. 같은 채널에서 sleep한 프로세스들은 그 채널에 대한 wakeup이 호출될 때 모두 깨어난다.
+In sleep/wakeup, a "channel" is an arbitrary address value that identifies a specific condition. In xv6, the address of a related data structure is typically used as the channel. All processes sleeping on the same channel are woken up when wakeup is called on that channel.
 
 ---
 
-## Exercise 1: sleep/wakeup 코드 분석 (15분)
+## Exercise 1: sleep/wakeup Code Analysis (15 min)
 
-### 1.1 `sleep()` 함수 분석
+### 1.1 Analyzing the `sleep()` Function
 
-`kernel/proc.c`의 540~569번째 줄에 있는 `sleep()` 함수를 읽어보자:
+Read the `sleep()` function at lines 540-569 of `kernel/proc.c`:
 
 ```c
 // kernel/proc.c, line 540-569
@@ -70,34 +70,34 @@ sleep(void *chan, struct spinlock *lk)
 }
 ```
 
-### 관찰 질문
+### Discussion Questions
 
-**Q1-1.** `sleep()`의 두 매개변수는 각각 무엇인가?
+**Q1-1.** What are the two parameters of `sleep()`?
 
-- `chan` (void *): sleep 채널. 프로세스가 어떤 이벤트를 기다리는지를 식별하는 주소값이다.
-- `lk` (struct spinlock *): 조건(condition)을 보호하는 lock. sleep에 진입하기 전에 이 lock을 들고 있어야 한다.
+- `chan` (void *): The sleep channel. An address value that identifies what event the process is waiting for.
+- `lk` (struct spinlock *): The lock that protects the condition. This lock must be held before entering sleep.
 
-**Q1-2.** `sleep()` 함수 안에서 lock이 교환되는 순서를 정리해 보자:
+**Q1-2.** Trace the order in which locks are exchanged inside the `sleep()` function:
 
-1. `acquire(&p->lock)` - 프로세스 자신의 lock을 획득
-2. `release(lk)` - 조건 lock을 해제
-3. (sleep 상태에서 깨어난 후)
-4. `release(&p->lock)` - 프로세스 lock 해제
-5. `acquire(lk)` - 조건 lock을 다시 획득
+1. `acquire(&p->lock)` - Acquire the process's own lock
+2. `release(lk)` - Release the condition lock
+3. (After waking up from sleep)
+4. `release(&p->lock)` - Release the process lock
+5. `acquire(lk)` - Re-acquire the condition lock
 
-> **핵심**: `p->lock`을 먼저 획득한 후에 `lk`를 해제한다. 이 순서가 왜 중요한지는 Exercise 4에서 다시 다룬다.
+> **Key point**: `p->lock` is acquired first before `lk` is released. Why this order is important will be revisited in Exercise 4.
 
-**Q1-3.** `p->chan = chan`과 `p->state = SLEEPING`을 설정한 후 `sched()`를 호출한다. `sched()`는 무엇을 하는가?
+**Q1-3.** After setting `p->chan = chan` and `p->state = SLEEPING`, `sched()` is called. What does `sched()` do?
 
-> `sched()`는 현재 프로세스의 컨텍스트를 저장하고, CPU의 스케줄러 컨텍스트로 전환한다(context switch). 스케줄러는 다른 RUNNABLE 프로세스를 찾아 실행시킨다. 현재 프로세스는 누군가가 `wakeup(chan)`을 호출할 때까지 실행되지 않는다.
+> `sched()` saves the current process's context and switches to the CPU's scheduler context (context switch). The scheduler finds and runs another RUNNABLE process. The current process will not execute until someone calls `wakeup(chan)`.
 
-**Q1-4.** sleep에서 깨어난 후 `p->chan = 0`으로 채널을 초기화하는 이유는?
+**Q1-4.** Why is the channel reset to `p->chan = 0` after waking up from sleep?
 
-> 프로세스가 더 이상 특정 채널에서 기다리고 있지 않음을 표시하기 위해서이다. 이후 다른 wakeup 호출에 잘못 깨어나는 것을 방지한다.
+> To indicate that the process is no longer waiting on a specific channel. This prevents the process from being mistakenly woken up by subsequent wakeup calls.
 
-### 1.2 `wakeup()` 함수 분석
+### 1.2 Analyzing the `wakeup()` Function
 
-`kernel/proc.c`의 571~587번째 줄에 있는 `wakeup()` 함수를 읽어보자:
+Read the `wakeup()` function at lines 571-587 of `kernel/proc.c`:
 
 ```c
 // kernel/proc.c, line 571-587
@@ -121,28 +121,28 @@ wakeup(void *chan)
 }
 ```
 
-### 관찰 질문
+### Discussion Questions
 
-**Q1-5.** `wakeup()`은 프로세스 테이블 전체를 순회한다. 왜 `p != myproc()` 조건이 필요한가?
+**Q1-5.** `wakeup()` iterates through the entire process table. Why is the `p != myproc()` condition necessary?
 
-> 자기 자신을 깨우려고 시도하면 의미가 없다. 또한 자기 자신의 `p->lock`을 이미 가지고 있는 상태에서 다시 acquire하면 deadlock이 발생할 수 있다.
+> Attempting to wake up yourself is meaningless. Also, if you already hold your own `p->lock` and try to acquire it again, a deadlock can occur.
 
-**Q1-6.** wakeup은 채널이 일치하는 **모든** 프로세스를 깨운다. 이것의 장단점은 무엇인가?
+**Q1-6.** wakeup wakes up **all** processes whose channel matches. What are the advantages and disadvantages of this?
 
-> - **장점**: 구현이 단순하고, wakeup이 깨워야 할 특정 프로세스를 알 필요가 없다.
-> - **단점**: 실제로 진행할 수 있는 프로세스가 하나뿐이어도 모든 프로세스가 깨어난다("thundering herd" 문제). 깨어난 프로세스들은 조건을 다시 확인하고, 조건이 충족되지 않으면 다시 sleep해야 한다.
+> - **Advantage**: The implementation is simple, and wakeup does not need to know which specific process to wake up.
+> - **Disadvantage**: Even if only one process can actually proceed, all processes are woken up ("thundering herd" problem). The woken processes must re-check the condition, and if it is not met, they must go back to sleep.
 
-**Q1-7.** `wakeup()`에서 각 프로세스의 `p->lock`을 획득하는 이유는?
+**Q1-7.** Why does `wakeup()` acquire each process's `p->lock`?
 
-> `p->state`와 `p->chan`을 안전하게 읽고 수정하기 위해서이다. 다른 CPU에서 동시에 같은 프로세스의 상태를 변경하는 것을 방지한다.
+> To safely read and modify `p->state` and `p->chan`. This prevents another CPU from concurrently changing the same process's state.
 
 ---
 
-## Exercise 2: pipe 구현 분석 (15분)
+## Exercise 2: Pipe Implementation Analysis (15 min)
 
-### 2.1 pipe 자료구조
+### 2.1 Pipe Data Structure
 
-`kernel/pipe.c`의 11~20번째 줄에 정의된 pipe 구조체를 살펴보자:
+Examine the pipe structure defined at lines 11-20 of `kernel/pipe.c`:
 
 ```c
 // kernel/pipe.c, line 11-20
@@ -159,16 +159,16 @@ struct pipe {
 };
 ```
 
-**Q2-1.** pipe 버퍼는 원형 버퍼(circular buffer)로 구현되어 있다. `nread`와 `nwrite`는 단조 증가하는 카운터다. 실제 버퍼 인덱스는 어떻게 계산하는가?
+**Q2-1.** The pipe buffer is implemented as a circular buffer. `nread` and `nwrite` are monotonically increasing counters. How is the actual buffer index calculated?
 
-> `pi->data[pi->nwrite % PIPESIZE]`와 `pi->data[pi->nread % PIPESIZE]`처럼 모듈러 연산을 사용한다.
+> Using the modulo operation, such as `pi->data[pi->nwrite % PIPESIZE]` and `pi->data[pi->nread % PIPESIZE]`.
 
-**Q2-2.** 버퍼가 가득 찬 조건은? 버퍼가 비어 있는 조건은?
+**Q2-2.** What is the condition for the buffer being full? What is the condition for it being empty?
 
-> - **가득 참**: `nwrite == nread + PIPESIZE` (쓴 양이 읽은 양보다 PIPESIZE만큼 앞서 있음)
-> - **비어 있음**: `nread == nwrite` (읽은 양이 쓴 양과 같음)
+> - **Full**: `nwrite == nread + PIPESIZE` (the amount written is PIPESIZE ahead of the amount read)
+> - **Empty**: `nread == nwrite` (the amount read equals the amount written)
 
-### 2.2 `pipewrite()` 분석
+### 2.2 Analyzing `pipewrite()`
 
 ```c
 // kernel/pipe.c, line 76-103
@@ -203,25 +203,25 @@ pipewrite(struct pipe *pi, uint64 addr, int n)
 }
 ```
 
-### 관찰 질문
+### Discussion Questions
 
-**Q2-3.** 88번째 줄에서 버퍼가 가득 찼을 때 writer는 어떤 동작을 하는가? 단계별로 설명하라.
+**Q2-3.** At line 88, when the buffer is full, what does the writer do? Explain step by step.
 
-> 1. `wakeup(&pi->nread)` - reader를 깨운다 (데이터를 읽어서 공간을 만들도록)
-> 2. `sleep(&pi->nwrite, &pi->lock)` - 채널 `&pi->nwrite`에서 sleep한다
->    - sleep 내부에서 `pi->lock`이 해제되어 reader가 진행할 수 있다
->    - reader가 데이터를 읽고 `wakeup(&pi->nwrite)`를 호출하면 writer가 깨어난다
-> 3. 깨어나면 다시 while 루프 상단으로 돌아가 조건을 확인한다
+> 1. `wakeup(&pi->nread)` - Wake up the reader (so it reads data and frees up space)
+> 2. `sleep(&pi->nwrite, &pi->lock)` - Sleep on channel `&pi->nwrite`
+>    - Inside sleep, `pi->lock` is released so the reader can proceed
+>    - When the reader reads data and calls `wakeup(&pi->nwrite)`, the writer is woken up
+> 3. After waking up, it returns to the top of the while loop to check the condition again
 
-**Q2-4.** `sleep(&pi->nwrite, &pi->lock)`에서 채널로 `&pi->nwrite`를 사용하는 이유는?
+**Q2-4.** Why is `&pi->nwrite` used as the channel in `sleep(&pi->nwrite, &pi->lock)`?
 
-> pipe 구조체 안의 `nwrite` 필드의 주소를 채널로 사용한다. 이는 "writer가 쓸 수 있기를 기다림"을 식별하는 고유한 주소값이다. reader의 `wakeup(&pi->nwrite)` 호출과 매칭된다.
+> It uses the address of the `nwrite` field within the pipe structure as the channel. This is a unique address value that identifies "waiting to be able to write." It matches with the reader's `wakeup(&pi->nwrite)` call.
 
-**Q2-5.** writer 루프가 끝난 후(99번째 줄) `wakeup(&pi->nread)`를 호출하는 이유는?
+**Q2-5.** Why is `wakeup(&pi->nread)` called after the writer loop ends (line 99)?
 
-> 데이터를 쓴 후 reader에게 "읽을 데이터가 있다"고 알려주기 위해서이다. reader가 빈 버퍼에서 sleep하고 있을 수 있다.
+> To notify the reader that "there is data to read" after writing data. The reader may be sleeping on an empty buffer.
 
-### 2.3 `piperead()` 분석
+### 2.3 Analyzing `piperead()`
 
 ```c
 // kernel/pipe.c, line 105-134
@@ -258,44 +258,44 @@ piperead(struct pipe *pi, uint64 addr, int n)
 }
 ```
 
-### 관찰 질문
+### Discussion Questions
 
-**Q2-6.** 113번째 줄의 while 조건을 분석하라. 두 가지 조건이 모두 참일 때 sleep하는 이유는?
+**Q2-6.** Analyze the while condition on line 113. Why does it sleep when both conditions are true?
 
-> - `pi->nread == pi->nwrite`: 버퍼가 비어 있다 (읽을 데이터가 없다)
-> - `pi->writeopen`: writer가 아직 열려 있다 (앞으로 데이터가 올 가능성이 있다)
+> - `pi->nread == pi->nwrite`: The buffer is empty (there is no data to read)
+> - `pi->writeopen`: The writer is still open (data may still arrive)
 >
-> 두 조건이 모두 참이면, 아직 데이터가 올 수 있으므로 기다린다. 만약 `writeopen`이 0이면 더 이상 데이터가 올 수 없으므로 기다리지 않고 바로 0을 반환한다 (EOF).
+> If both conditions are true, there may still be data coming, so it waits. If `writeopen` is 0, no more data can arrive, so it does not wait and immediately returns 0 (EOF).
 
-**Q2-7.** 아래 표를 완성하여 piperead와 pipewrite의 sleep/wakeup 관계를 정리하라:
+**Q2-7.** Complete the table below to summarize the sleep/wakeup relationship between piperead and pipewrite:
 
-| 동작 | sleep 채널 | wakeup 채널 | 의미 |
-|------|-----------|-------------|------|
-| writer가 버퍼 full에서 대기 | `&pi->nwrite` | (reader가) `&pi->nwrite` | "쓸 공간 생김" |
-| reader가 버퍼 empty에서 대기 | `&pi->nread` | (writer가) `&pi->nread` | "읽을 데이터 있음" |
+| Action | sleep channel | wakeup channel | Meaning |
+|--------|--------------|----------------|---------|
+| Writer waiting on full buffer | `&pi->nwrite` | (reader calls) `&pi->nwrite` | "Space available for writing" |
+| Reader waiting on empty buffer | `&pi->nread` | (writer calls) `&pi->nread` | "Data available for reading" |
 
-**Q2-8.** `piperead()`에서 while 루프를 빠져나온 후 for 루프(120번째 줄)에서 `if(pi->nread == pi->nwrite) break;`를 다시 확인하는 이유는?
+**Q2-8.** In `piperead()`, why does the for loop (line 120) check `if(pi->nread == pi->nwrite) break;` again after exiting the while loop?
 
-> while 루프에서 빠져나오는 경우는 두 가지이다:
-> 1. 버퍼에 데이터가 있는 경우 (`pi->nread != pi->nwrite`)
-> 2. writer가 닫힌 경우 (`!pi->writeopen`)
+> There are two cases for exiting the while loop:
+> 1. There is data in the buffer (`pi->nread != pi->nwrite`)
+> 2. The writer has been closed (`!pi->writeopen`)
 >
-> 2번의 경우 버퍼에 데이터가 남아있을 수도, 없을 수도 있다. for 루프에서 데이터를 하나씩 읽다가 버퍼가 비면 중단해야 한다.
+> In case 2, there may or may not be data remaining in the buffer. While reading data one byte at a time in the for loop, it must stop if the buffer becomes empty.
 
 ---
 
-## Exercise 3: Producer-Consumer 프로그램 작성 (15분)
+## Exercise 3: Writing a Producer-Consumer Program (15 min)
 
-### 3.1 개요
+### 3.1 Overview
 
-pipe를 이용하여 producer-consumer 패턴을 구현하는 xv6 유저 프로그램을 작성한다.
+Write an xv6 user program that implements the producer-consumer pattern using pipes.
 
-- **Producer (부모 프로세스)**: pipe에 데이터를 쓴다
-- **Consumer (자식 프로세스)**: pipe에서 데이터를 읽어 출력한다
+- **Producer (parent process)**: Writes data to the pipe
+- **Consumer (child process)**: Reads data from the pipe and prints it
 
-### 3.2 코드 작성
+### 3.2 Writing the Code
 
-`examples/producer_consumer.c` 파일을 참고하라. 아래는 핵심 구조이다:
+Refer to the `examples/producer_consumer.c` file. Below is the core structure:
 
 ```c
 #include "kernel/types.h"
@@ -308,7 +308,7 @@ main(int argc, char *argv[])
   int fds[2];
   int pid;
 
-  // pipe 생성
+  // Create pipe
   if(pipe(fds) < 0){
     printf("pipe() failed\n");
     exit(1);
@@ -321,15 +321,15 @@ main(int argc, char *argv[])
   }
 
   if(pid == 0){
-    // 자식 프로세스 (Consumer)
-    close(fds[1]);  // write end 닫기
-    // ... fds[0]에서 read ...
+    // Child process (Consumer)
+    close(fds[1]);  // Close write end
+    // ... read from fds[0] ...
     close(fds[0]);
     exit(0);
   } else {
-    // 부모 프로세스 (Producer)
-    close(fds[0]);  // read end 닫기
-    // ... fds[1]에 write ...
+    // Parent process (Producer)
+    close(fds[0]);  // Close read end
+    // ... write to fds[1] ...
     close(fds[1]);
     wait(0);
     exit(0);
@@ -337,39 +337,39 @@ main(int argc, char *argv[])
 }
 ```
 
-### 실습 단계
+### Lab Steps
 
-**단계 1**: `examples/producer_consumer.c` 파일의 전체 코드를 읽고 이해한다.
+**Step 1**: Read and understand the full code in the `examples/producer_consumer.c` file.
 
-**단계 2**: 이 프로그램을 xv6에 추가하여 실행해 본다.
+**Step 2**: Add this program to xv6 and run it.
 
-xv6에 새로운 유저 프로그램을 추가하려면:
+To add a new user program to xv6:
 
-1. 소스 파일을 `user/` 디렉토리에 복사한다:
+1. Copy the source file to the `user/` directory:
    ```
    cp practice/week9/lab/examples/producer_consumer.c user/producer_consumer.c
    ```
 
-2. `Makefile`의 `UPROGS` 목록에 추가한다:
+2. Add it to the `UPROGS` list in the `Makefile`:
    ```makefile
    UPROGS=\
        ...
        $U/_producer_consumer\
    ```
 
-3. xv6를 빌드하고 실행한다:
+3. Build and run xv6:
    ```
    make clean && make qemu
    ```
 
-4. xv6 셸에서 실행한다:
+4. Run it in the xv6 shell:
    ```
    $ producer_consumer
    ```
 
-**단계 3**: 출력 결과를 관찰한다.
+**Step 3**: Observe the output.
 
-예상 출력:
+Expected output:
 ```
 [Producer] Sending 5 messages through pipe...
 [Producer] Sent: msg 0: hello from producer
@@ -387,36 +387,36 @@ xv6에 새로운 유저 프로그램을 추가하려면:
 [Consumer] Pipe closed by producer (read returned 0). Exiting.
 ```
 
-> **참고**: fork() 후 부모와 자식의 실행 순서는 스케줄러에 따라 달라지므로, Producer와 Consumer의 메시지가 섞여서 출력될 수 있다. 이것은 정상이다.
+> **Note**: Since the execution order of the parent and child after fork() depends on the scheduler, the Producer and Consumer messages may be interleaved in the output. This is normal.
 
-### 관찰 질문
+### Discussion Questions
 
-**Q3-1.** Consumer가 Producer보다 먼저 실행되면 어떻게 되는가?
+**Q3-1.** What happens if the Consumer runs before the Producer?
 
-> Consumer가 `read()`를 호출하면 pipe 버퍼가 비어 있으므로, 커널의 `piperead()` 안에서 `sleep(&pi->nread, &pi->lock)`이 호출된다. Consumer는 SLEEPING 상태가 되고, Producer가 데이터를 쓰면 `wakeup(&pi->nread)`로 깨어난다.
+> When the Consumer calls `read()`, the pipe buffer is empty, so `sleep(&pi->nread, &pi->lock)` is called inside the kernel's `piperead()`. The Consumer enters the SLEEPING state, and when the Producer writes data, it is woken up by `wakeup(&pi->nread)`.
 
-**Q3-2.** Producer가 `close(fds[1])`로 write end를 닫으면 Consumer의 `read()`는 어떤 값을 반환하는가?
+**Q3-2.** When the Producer closes the write end with `close(fds[1])`, what value does the Consumer's `read()` return?
 
-> 0을 반환한다 (EOF). `piperead()`에서 `pi->writeopen`이 0이 되므로 while 루프를 빠져나오고, 버퍼에 데이터가 없으면 `i = 0`으로 for 루프를 건너뛰어 0을 반환한다.
+> It returns 0 (EOF). In `piperead()`, `pi->writeopen` becomes 0, so the while loop is exited, and if there is no data in the buffer, the for loop is skipped with `i = 0`, returning 0.
 
-**Q3-3.** Producer가 pipe 버퍼 크기(512 bytes)보다 큰 데이터를 한번에 쓰려 하면 어떻게 되는가?
+**Q3-3.** What happens if the Producer tries to write data larger than the pipe buffer size (512 bytes) at once?
 
-> `pipewrite()`에서 버퍼가 가득 차면(`nwrite == nread + PIPESIZE`) writer는 sleep한다. Consumer가 데이터를 읽어 공간을 만들면 writer가 깨어나서 나머지를 쓴다. 따라서 데이터가 손실되지 않고 자동으로 흐름 제어(flow control)가 이루어진다.
+> In `pipewrite()`, when the buffer becomes full (`nwrite == nread + PIPESIZE`), the writer sleeps. When the Consumer reads data and frees up space, the writer is woken up and writes the rest. Therefore, no data is lost and flow control is automatically achieved.
 
 ---
 
-## Exercise 4: Lost Wakeup 문제 이해 (5분)
+## Exercise 4: Understanding the Lost Wakeup Problem (5 min)
 
-### 4.1 Lost Wakeup이란?
+### 4.1 What is a Lost Wakeup?
 
-"Lost wakeup"은 wakeup 신호가 유실되어 프로세스가 영원히 잠드는 버그이다. 이 문제는 sleep/wakeup을 사용할 때 lock을 올바르게 다루지 않으면 발생한다.
+A "lost wakeup" is a bug where a wakeup signal is lost, causing a process to sleep forever. This problem occurs when locks are not handled correctly when using sleep/wakeup.
 
-### 4.2 잘못된 구현 예시
+### 4.2 Example of an Incorrect Implementation
 
-만약 `sleep()`이 lock 매개변수를 받지 않는 단순한 구현이라고 가정하자:
+Suppose `sleep()` is a simple implementation that does not take a lock parameter:
 
 ```c
-// 잘못된 sleep 구현 (lock 매개변수 없음)
+// Incorrect sleep implementation (no lock parameter)
 void broken_sleep(void *chan)
 {
   struct proc *p = myproc();
@@ -429,61 +429,61 @@ void broken_sleep(void *chan)
 }
 ```
 
-이 구현으로 piperead를 작성하면:
+Writing piperead with this implementation:
 
 ```c
-// 잘못된 piperead - lost wakeup 발생 가능!
+// Incorrect piperead - lost wakeup can occur!
 int broken_piperead(struct pipe *pi, uint64 addr, int n)
 {
   acquire(&pi->lock);
   while(pi->nread == pi->nwrite && pi->writeopen){
-    release(&pi->lock);        // (A) lock 해제
-    // <-- 여기서 wakeup이 발생하면?! -->
-    broken_sleep(&pi->nread);  // (B) sleep 진입
+    release(&pi->lock);        // (A) Release lock
+    // <-- What if wakeup happens here?! -->
+    broken_sleep(&pi->nread);  // (B) Enter sleep
   }
   // ... read data ...
   release(&pi->lock);
 }
 ```
 
-### 4.3 문제 시나리오
+### 4.3 Problem Scenario
 
-다음 순서로 실행이 진행된다고 가정하자:
+Assume execution proceeds in the following order:
 
 ```
-시간  Reader (CPU 0)                    Writer (CPU 1)
-────  ────────────────────────────────  ────────────────────────────────
- 1    버퍼 비어있음 확인 (조건 true)
+Time  Reader (CPU 0)                    Writer (CPU 1)
+----  --------------------------------  --------------------------------
+ 1    Check buffer empty (condition true)
  2    release(&pi->lock)  // (A)
  3                                      acquire(&pi->lock)
- 4                                      데이터를 버퍼에 씀
- 5                                      wakeup(&pi->nread)  // Reader는
- 6                                      // 아직 SLEEPING이 아니므로 무시됨!
+ 4                                      Write data to buffer
+ 5                                      wakeup(&pi->nread)  // Reader is
+ 6                                      // not SLEEPING yet, so ignored!
  7                                      release(&pi->lock)
  8    broken_sleep(&pi->nread) // (B)
- 9    // 영원히 잠듦 - 깨워줄 사람이 없다!
+ 9    // Sleeps forever - nobody to wake it up!
 ```
 
-**핵심 문제**: (A)에서 lock을 해제한 시점과 (B)에서 실제로 SLEEPING 상태가 되는 시점 사이에 **빈틈(gap)**이 존재한다. 이 빈틈에서 writer가 wakeup을 호출하면, reader는 아직 잠들지 않았으므로 wakeup이 무시된다. 이후 reader가 잠들면 깨워줄 사람이 없다.
+**Core problem**: There is a **gap** between point (A) where the lock is released and point (B) where the process actually enters the SLEEPING state. If the writer calls wakeup during this gap, the reader has not yet gone to sleep, so the wakeup is ignored. After the reader goes to sleep, there is nobody to wake it up.
 
-### 4.4 xv6의 올바른 해결책
+### 4.4 xv6's Correct Solution
 
-xv6의 `sleep()`은 이 문제를 다음과 같이 해결한다:
+xv6's `sleep()` solves this problem as follows:
 
 ```c
-// kernel/proc.c, line 540-569 (올바른 구현)
+// kernel/proc.c, line 540-569 (correct implementation)
 void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
 
-  acquire(&p->lock);   // (1) 프로세스 lock 획득
-  release(lk);         // (2) 조건 lock 해제
+  acquire(&p->lock);   // (1) Acquire process lock
+  release(lk);         // (2) Release condition lock
 
   p->chan = chan;
-  p->state = SLEEPING; // (3) SLEEPING 상태 설정
+  p->state = SLEEPING; // (3) Set SLEEPING state
 
-  sched();             // (4) 스케줄러로 전환
+  sched();             // (4) Switch to scheduler
 
   p->chan = 0;
 
@@ -492,69 +492,69 @@ sleep(void *chan, struct spinlock *lk)
 }
 ```
 
-**해결 원리**:
+**How it works**:
 
-1. `acquire(&p->lock)` 후에 `release(lk)`를 한다.
-2. `p->lock`을 들고 있는 상태에서 `lk`를 해제하므로, writer가 `wakeup()`을 호출하더라도 `p->lock`을 획득할 수 없어 reader의 상태를 확인할 수 없다.
-3. reader가 `p->state = SLEEPING`으로 상태를 완전히 설정하고 `sched()`로 CPU를 양보한 **후에야** `p->lock`이 해제된다 (스케줄러 내부에서).
-4. 그때 비로소 writer의 `wakeup()`이 `p->lock`을 획득하고 reader를 깨울 수 있다.
+1. `release(lk)` is done after `acquire(&p->lock)`.
+2. Since `lk` is released while holding `p->lock`, even if the writer calls `wakeup()`, it cannot acquire `p->lock` and thus cannot check the reader's state.
+3. `p->lock` is only released (inside the scheduler) **after** the reader has fully set its state to `p->state = SLEEPING` and yielded the CPU with `sched()`.
+4. Only then can the writer's `wakeup()` acquire `p->lock` and wake up the reader.
 
-즉, **"조건 확인 -> sleep 상태 전환"이 원자적(atomic)으로 이루어진다** (p->lock에 의해 보호됨).
+In other words, **"checking the condition -> transitioning to sleep state" is done atomically** (protected by p->lock).
 
 ```
-시간  Reader (CPU 0)                    Writer (CPU 1)
-────  ────────────────────────────────  ────────────────────────────────
- 1    버퍼 비어있음 확인 (조건 true)
+Time  Reader (CPU 0)                    Writer (CPU 1)
+----  --------------------------------  --------------------------------
+ 1    Check buffer empty (condition true)
  2    acquire(&p->lock)
  3    release(&pi->lock)
  4    p->state = SLEEPING               acquire(&pi->lock)
- 5    sched() -> p->lock 해제           데이터를 버퍼에 씀
+ 5    sched() -> p->lock released       Write data to buffer
  6                                      wakeup(&pi->nread)
- 7                                        acquire(&p->lock) // 이제 성공
- 8                                        p->state = RUNNABLE // 깨움!
+ 7                                        acquire(&p->lock) // Now succeeds
+ 8                                        p->state = RUNNABLE // Woken up!
  9                                        release(&p->lock)
 ```
 
-### 관찰 질문
+### Discussion Questions
 
-**Q4-1.** "lock을 sleep에 넘겨야 한다"는 규칙을 한 문장으로 요약하면?
+**Q4-1.** Summarize the rule "you must pass the lock to sleep" in one sentence.
 
-> sleep은 조건 lock을 받아서, 자신이 SLEEPING 상태로 전환되는 것과 lock 해제가 원자적으로 이루어지도록 보장한다. 이를 통해 "조건 확인"과 "잠들기" 사이의 빈틈에서 wakeup이 유실되는 것을 방지한다.
+> sleep receives the condition lock and ensures that the transition to SLEEPING state and the lock release happen atomically. This prevents wakeup from being lost in the gap between "checking the condition" and "going to sleep."
 
-**Q4-2.** `examples/wakeup_demo.c` 프로그램을 실행하여 pipe를 통한 blocking/wakeup 동작을 관찰해 보자.
+**Q4-2.** Run the `examples/wakeup_demo.c` program to observe blocking/wakeup behavior through pipes.
 
-xv6에 추가하는 방법은 Exercise 3과 동일하다:
-1. `user/` 디렉토리에 소스 파일을 복사한다
-2. Makefile의 `UPROGS`에 `$U/_wakeup_demo\`를 추가한다
-3. `make clean && make qemu` 후 xv6 셸에서 `wakeup_demo`를 실행한다
+The steps to add it to xv6 are the same as Exercise 3:
+1. Copy the source file to the `user/` directory
+2. Add `$U/_wakeup_demo\` to `UPROGS` in the Makefile
+3. Run `make clean && make qemu` and then execute `wakeup_demo` in the xv6 shell
 
 ---
 
-## 요약 및 핵심 정리
+## Summary and Key Takeaways
 
-### 1. sleep/wakeup 메커니즘
+### 1. sleep/wakeup Mechanism
 
-| 항목 | 설명 |
-|------|------|
-| `sleep(chan, lk)` | 현재 프로세스를 `chan` 채널에서 SLEEPING 상태로 전환. `lk`를 원자적으로 해제 |
-| `wakeup(chan)` | `chan`에서 잠자는 모든 프로세스를 RUNNABLE로 전환 |
-| 채널(channel) | 이벤트를 식별하는 임의의 주소값 (보통 관련 데이터의 주소) |
+| Item | Description |
+|------|-------------|
+| `sleep(chan, lk)` | Transitions the current process to SLEEPING state on channel `chan`. Atomically releases `lk` |
+| `wakeup(chan)` | Transitions all processes sleeping on `chan` to RUNNABLE |
+| Channel | An arbitrary address value that identifies an event (usually the address of related data) |
 
-### 2. pipe에서의 sleep/wakeup 사용
+### 2. sleep/wakeup Usage in Pipes
 
-| 상황 | 호출하는 함수 | sleep 채널 | 깨워주는 쪽 |
-|------|-------------|-----------|-----------|
-| reader가 빈 버퍼에서 대기 | `sleep(&pi->nread, &pi->lock)` | `&pi->nread` | writer의 `wakeup(&pi->nread)` |
-| writer가 가득 찬 버퍼에서 대기 | `sleep(&pi->nwrite, &pi->lock)` | `&pi->nwrite` | reader의 `wakeup(&pi->nwrite)` |
+| Situation | Function called | sleep channel | Woken up by |
+|-----------|----------------|---------------|-------------|
+| Reader waiting on empty buffer | `sleep(&pi->nread, &pi->lock)` | `&pi->nread` | Writer's `wakeup(&pi->nread)` |
+| Writer waiting on full buffer | `sleep(&pi->nwrite, &pi->lock)` | `&pi->nwrite` | Reader's `wakeup(&pi->nwrite)` |
 
-### 3. Lost Wakeup 방지
+### 3. Preventing Lost Wakeups
 
-- **문제**: 조건 확인과 sleep 사이에 wakeup이 발생하면 유실됨
-- **해결**: `sleep()`에 조건 lock을 넘겨서, SLEEPING 상태 전환과 lock 해제를 원자적으로 수행
-- **핵심 순서**: `acquire(p->lock)` -> `release(lk)` -> `SLEEPING` -> `sched()` -> (스케줄러가 `p->lock` 해제)
+- **Problem**: If wakeup occurs between checking the condition and sleeping, it is lost
+- **Solution**: Pass the condition lock to `sleep()` so that the transition to SLEEPING state and lock release are performed atomically
+- **Key sequence**: `acquire(p->lock)` -> `release(lk)` -> `SLEEPING` -> `sched()` -> (scheduler releases `p->lock`)
 
-### 4. Producer-Consumer 패턴
+### 4. Producer-Consumer Pattern
 
-- pipe는 커널 수준의 producer-consumer 구현이다
-- 자동 흐름 제어: 버퍼가 가득 차면 producer가 sleep, 비면 consumer가 sleep
-- EOF 처리: write end가 닫히면 reader의 `read()`가 0을 반환
+- A pipe is a kernel-level producer-consumer implementation
+- Automatic flow control: If the buffer is full, the producer sleeps; if empty, the consumer sleeps
+- EOF handling: When the write end is closed, the reader's `read()` returns 0

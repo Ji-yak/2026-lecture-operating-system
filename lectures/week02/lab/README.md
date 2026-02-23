@@ -1,330 +1,330 @@
-# Week 2 실습: Process 1 - fork, exec, wait, pipe, I/O
+# Week 2 Lab: Process 1 - fork, exec, wait, pipe, I/O
 
-> 교재: xv6 Ch 1 - Operating System Interfaces
-> 소요 시간: 약 50분
-> 환경: Linux 또는 macOS (gcc 필요)
-
----
-
-## 학습 목표
-
-이번 실습을 통해 다음을 이해합니다:
-
-- `fork()`로 프로세스를 복제하고 `wait()`으로 자식을 기다리는 방법
-- `exec()` 패밀리로 현재 프로세스를 새 프로그램으로 교체하는 방법
-- `pipe()`로 프로세스 간 데이터를 주고받는 방법
-- `dup2()`로 표준 입출력을 파일이나 파이프로 리다이렉트하는 방법
-
-이 네 가지 시스템 콜의 조합이 Unix 셸의 핵심 원리입니다.
+> Textbook: xv6 Ch 1 - Operating System Interfaces
+> Duration: approximately 50 minutes
+> Environment: Linux or macOS (gcc required)
 
 ---
 
-## 사전 준비
+## Learning Objectives
+
+Through this lab, you will understand:
+
+- How to duplicate a process with `fork()` and wait for a child with `wait()`
+- How to replace the current process with a new program using the `exec()` family
+- How to send and receive data between processes using `pipe()`
+- How to redirect standard I/O to files or pipes using `dup2()`
+
+The combination of these four system calls is the core principle behind the Unix shell.
+
+---
+
+## Prerequisites
 
 ```bash
-# gcc가 설치되어 있는지 확인
+# Verify that gcc is installed
 gcc --version
 
-# 실습 디렉토리로 이동
+# Navigate to the lab directory
 cd week2/lab/examples/
 ```
 
 ---
 
-## 실습 1: fork()와 wait() 기초 (~12분)
+## Lab 1: fork() and wait() Basics (~12 min)
 
-### 배경 지식
+### Background
 
-`fork()`는 현재 프로세스를 그대로 복제하여 자식 프로세스를 생성합니다.
+`fork()` duplicates the current process to create a child process.
 
 ```
-fork() 호출 전:     fork() 호출 후:
+Before fork():          After fork():
 
-  [부모 PID=100]      [부모 PID=100]  fork() 반환값 = 자식PID (200)
-                       │
-                       └─ [자식 PID=200]  fork() 반환값 = 0
+  [Parent PID=100]      [Parent PID=100]  fork() returns = child PID (200)
+                          |
+                          +-- [Child PID=200]  fork() returns = 0
 ```
 
-- 부모 프로세스: `fork()`가 자식의 PID를 반환
-- 자식 프로세스: `fork()`가 0을 반환
-- 실패 시: -1 반환
+- Parent process: `fork()` returns the child's PID
+- Child process: `fork()` returns 0
+- On failure: returns -1
 
-`wait()`는 자식 프로세스가 종료될 때까지 부모를 블록(대기)시킵니다.
+`wait()` blocks (suspends) the parent until the child process terminates.
 
-### 실습 단계
+### Lab Steps
 
-**단계 1**: 예제 코드를 컴파일하고 실행합니다.
+**Step 1**: Compile and run the example code.
 
 ```bash
 gcc -Wall -o fork_basic fork_basic.c
 ./fork_basic
 ```
 
-**단계 2**: 출력을 관찰하고 다음 질문에 답해보세요.
+**Step 2**: Observe the output and answer the following questions.
 
-- Q1: 부모와 자식 중 누가 먼저 출력하나요? 실행할 때마다 같은가요?
-- Q2: `wait()`을 제거하면 어떻게 되나요? (주석 처리 후 재컴파일)
-- Q3: 자식이 `exit(42)`로 종료했을 때, 부모에서 42를 어떻게 확인하나요?
+- Q1: Who prints first, the parent or the child? Is it the same every time you run it?
+- Q2: What happens if you remove `wait()`? (Comment it out and recompile)
+- Q3: When the child exits with `exit(42)`, how can the parent retrieve the value 42?
 
-**단계 3**: 직접 수정해보기
+**Step 3**: Try modifying it yourself
 
-`fork_basic.c`를 수정하여 자식 프로세스가 5개 생성되도록 바꿔보세요. 각 자식이 서로 다른 exit code(0~4)로 종료하게 하고, 부모에서 모든 종료 코드를 출력하세요.
+Modify `fork_basic.c` so that 5 child processes are created. Have each child exit with a different exit code (0~4), and have the parent print all the exit codes.
 
-### 핵심 정리
+### Key Summary
 
 ```c
 pid_t pid = fork();
 if (pid == 0) {
-    // 자식 코드
+    // Child code
     exit(0);
 } else {
-    // 부모 코드
+    // Parent code
     int status;
-    wait(&status);            // 자식이 종료될 때까지 대기
-    WEXITSTATUS(status);      // 자식의 exit code 추출
+    wait(&status);            // Wait until child terminates
+    WEXITSTATUS(status);      // Extract child's exit code
 }
 ```
 
 ---
 
-## 실습 2: exec() 패밀리 (~12분)
+## Lab 2: The exec() Family (~12 min)
 
-### 배경 지식
+### Background
 
-`exec()`은 현재 프로세스의 코드, 데이터, 스택을 새 프로그램으로 **완전히 교체**합니다. 성공하면 돌아오지 않습니다.
+`exec()` **completely replaces** the current process's code, data, and stack with a new program. If it succeeds, it does not return.
 
 ```
-exec() 전:                exec() 후:
-[프로세스 PID=200]        [프로세스 PID=200]
- 코드: fork_basic          코드: /bin/ls        ← 완전히 교체됨
- 데이터: ...               데이터: ...
- PID는 그대로!             PID는 그대로!
+Before exec():              After exec():
+[Process PID=200]           [Process PID=200]
+ Code: fork_basic            Code: /bin/ls        <-- completely replaced
+ Data: ...                   Data: ...
+ PID stays the same!        PID stays the same!
 ```
 
-exec 패밀리 함수 이름 규칙:
+Naming convention for the exec family functions:
 
-| 접미사 | 의미 | 예시 |
-|--------|------|------|
-| `l` | 인자를 나열 (list) | `execl("/bin/ls", "ls", "-l", NULL)` |
-| `v` | 인자를 배열로 (vector) | `execv("/bin/ls", argv)` |
-| `p` | PATH 환경변수 검색 | `execlp("ls", "ls", "-l", NULL)` |
-| `e` | 환경변수 직접 지정 | `execle(path, arg, ..., envp)` |
+| Suffix | Meaning | Example |
+|--------|---------|---------|
+| `l` | Arguments as a list | `execl("/bin/ls", "ls", "-l", NULL)` |
+| `v` | Arguments as a vector (array) | `execv("/bin/ls", argv)` |
+| `p` | Search PATH environment variable | `execlp("ls", "ls", "-l", NULL)` |
+| `e` | Specify environment variables directly | `execle(path, arg, ..., envp)` |
 
-### 실습 단계
+### Lab Steps
 
-**단계 1**: 예제 코드를 컴파일하고 실행합니다.
+**Step 1**: Compile and run the example code.
 
 ```bash
 gcc -Wall -o exec_example exec_example.c
 ./exec_example
 ```
 
-**단계 2**: 출력을 관찰하고 다음 질문에 답해보세요.
+**Step 2**: Observe the output and answer the following questions.
 
-- Q1: `exec()` 호출 뒤에 있는 `printf()`가 실행되나요? 왜 그런가요?
-- Q2: Demo 6에서 exec 실패 시 `perror`가 출력되는 이유는 무엇인가요?
-- Q3: `fork()` 없이 `exec()`만 호출하면 어떻게 되나요?
+- Q1: Does the `printf()` after the `exec()` call get executed? Why or why not?
+- Q2: In Demo 6, why does `perror` print when exec fails?
+- Q3: What happens if you call `exec()` without `fork()`?
 
-**단계 3**: 직접 수정해보기
+**Step 3**: Try modifying it yourself
 
-`exec_example.c`에 새로운 demo를 추가해보세요: `execvp`를 사용하여 `grep`을 실행하고, 특정 파일에서 패턴을 검색하도록 만드세요.
+Add a new demo to `exec_example.c`: use `execvp` to run `grep` and search for a pattern in a specific file.
 
 ```c
-// 힌트: "grep" "pattern" "filename" 을 execvp로 실행
+// Hint: Run "grep" "pattern" "filename" using execvp
 char *args[] = {"grep", "hello", "/etc/hosts", NULL};
 execvp("grep", args);
 ```
 
-### 핵심 정리
+### Key Summary
 
 ```
-fork() + exec() + wait() = 새 프로그램 실행의 기본 패턴
+fork() + exec() + wait() = the basic pattern for running a new program
 
-부모:  fork() ──→ wait() ──→ 계속 실행
-         │
-자식:  exec("ls") ──→ (ls가 실행되고 종료)
+Parent:  fork() --> wait() --> continue execution
+           |
+Child:   exec("ls") --> (ls runs and exits)
 ```
 
-왜 fork와 exec이 분리되어 있을까요?
-- fork와 exec 사이에 자식 프로세스의 환경을 조작할 수 있습니다 (fd 리다이렉션, 환경변수 설정 등).
-- 이것이 Unix 철학의 핵심 설계 중 하나입니다.
+Why are fork and exec separated?
+- Between fork and exec, you can manipulate the child process's environment (fd redirection, setting environment variables, etc.).
+- This is one of the key design principles of the Unix philosophy.
 
 ---
 
-## 실습 3: pipe()로 프로세스 간 통신 (~13분)
+## Lab 3: Inter-Process Communication with pipe() (~13 min)
 
-### 배경 지식
+### Background
 
-`pipe()`는 커널 내부에 버퍼를 만들고, 읽기/쓰기용 파일 디스크립터 2개를 반환합니다.
+`pipe()` creates a buffer inside the kernel and returns 2 file descriptors for reading and writing.
 
 ```
-pipe(fd) 호출 결과:
+Result of pipe(fd):
 
-  쓰는 프로세스 ──write()──→ fd[1] ═══[커널 버퍼]═══ fd[0] ──read()──→ 읽는 프로세스
-                            (쓰기 끝)                (읽기 끝)
+  Writer process --write()--> fd[1] ===[kernel buffer]=== fd[0] --read()--> Reader process
+                              (write end)                  (read end)
 ```
 
-중요한 규칙:
-- 사용하지 않는 fd는 **반드시 close()** 해야 합니다.
-- 쓰기 끝(`fd[1]`)이 모두 닫혀야 읽는 쪽의 `read()`가 EOF(0)를 반환합니다.
+Important rules:
+- Unused fds **must be closed with close()**.
+- The read side's `read()` returns EOF (0) only when all write ends (`fd[1]`) are closed.
 
-### 실습 단계
+### Lab Steps
 
-**단계 1**: 예제 코드를 컴파일하고 실행합니다.
+**Step 1**: Compile and run the example code.
 
 ```bash
 gcc -Wall -o pipe_example pipe_example.c
 ./pipe_example
 ```
 
-**단계 2**: 출력을 관찰하고 다음 질문에 답해보세요.
+**Step 2**: Observe the output and answer the following questions.
 
-- Q1: Demo 1에서 부모가 `close(fd[0])`을, 자식이 `close(fd[1])`을 하는 이유는?
-- Q2: Demo 2에서 양방향 통신을 위해 pipe를 몇 개 사용하나요? 왜 1개로는 안 되나요?
-- Q3: Demo 3에서 `dup2(fd[1], STDOUT_FILENO)`는 무슨 역할을 하나요?
+- Q1: In Demo 1, why does the parent `close(fd[0])` and the child `close(fd[1])`?
+- Q2: How many pipes are used for bidirectional communication in Demo 2? Why can't you use just 1?
+- Q3: In Demo 3, what does `dup2(fd[1], STDOUT_FILENO)` do?
 
-**단계 3**: 직접 수정해보기
+**Step 3**: Try modifying it yourself
 
-Demo 1을 수정하여 부모가 여러 줄의 메시지를 보내고, 자식이 줄 단위로 읽어서 출력하도록 바꿔보세요.
+Modify Demo 1 so that the parent sends multiple lines of messages, and the child reads and prints them line by line.
 
 ```c
-// 힌트: 자식에서 fdopen()으로 FILE*을 만들어 fgets()를 사용
+// Hint: Create a FILE* from fd using fdopen() in the child, then use fgets()
 FILE *fp = fdopen(fd[0], "r");
 char line[256];
 while (fgets(line, sizeof(line), fp) != NULL) {
-    printf("[자식] %s", line);
+    printf("[Child] %s", line);
 }
 fclose(fp);
 ```
 
-### 핵심 정리
+### Key Summary
 
 ```c
 int fd[2];
-pipe(fd);           // fd[0]=읽기, fd[1]=쓰기
+pipe(fd);           // fd[0]=read, fd[1]=write
 pid_t pid = fork();
 if (pid == 0) {
-    close(fd[1]);   // 자식: 쓰기 끝 닫기
+    close(fd[1]);   // Child: close write end
     read(fd[0], buf, sizeof(buf));
     close(fd[0]);
 } else {
-    close(fd[0]);   // 부모: 읽기 끝 닫기
+    close(fd[0]);   // Parent: close read end
     write(fd[1], msg, len);
-    close(fd[1]);   // 쓰기 끝 닫아야 자식이 EOF 받음
+    close(fd[1]);   // Must close write end so child receives EOF
     wait(NULL);
 }
 ```
 
 ---
 
-## 실습 4: dup()과 I/O 리다이렉션 (~13분)
+## Lab 4: dup() and I/O Redirection (~13 min)
 
-### 배경 지식
+### Background
 
-모든 프로세스는 파일 디스크립터 테이블을 갖고 있습니다:
-
-```
-fd 번호 → 파일 (커널 내부 구조체)
-  0     → stdin  (키보드)
-  1     → stdout (화면)
-  2     → stderr (화면)
-  3     → (open으로 열면 여기부터 할당)
-```
-
-`dup2(oldfd, newfd)` = newfd를 닫고, newfd가 oldfd와 같은 파일을 가리키게 합니다.
+Every process has a file descriptor table:
 
 ```
-셸의 "echo hello > output.txt" 구현:
-
-1. fd = open("output.txt", O_WRONLY|O_CREAT|O_TRUNC)   → fd=3
-2. dup2(3, 1)     → stdout(1)이 output.txt를 가리킴
-3. close(3)       → 원본 fd 정리
-4. exec("echo")   → echo의 stdout 출력이 파일로 간다!
+fd number -> file (kernel internal structure)
+  0       -> stdin  (keyboard)
+  1       -> stdout (screen)
+  2       -> stderr (screen)
+  3       -> (allocated from here when opened with open)
 ```
 
-### 실습 단계
+`dup2(oldfd, newfd)` = closes newfd, then makes newfd point to the same file as oldfd.
 
-**단계 1**: 예제 코드를 컴파일하고 실행합니다.
+```
+Implementing the shell's "echo hello > output.txt":
+
+1. fd = open("output.txt", O_WRONLY|O_CREAT|O_TRUNC)   -> fd=3
+2. dup2(3, 1)     -> stdout(1) now points to output.txt
+3. close(3)       -> clean up the original fd
+4. exec("echo")   -> echo's stdout output goes to the file!
+```
+
+### Lab Steps
+
+**Step 1**: Compile and run the example code.
 
 ```bash
 gcc -Wall -o redirect redirect.c
 ./redirect
 ```
 
-**단계 2**: 출력을 관찰하고 다음 질문에 답해보세요.
+**Step 2**: Observe the output and answer the following questions.
 
-- Q1: Demo 1에서 `dup2(fd, STDOUT_FILENO)` 후 `close(fd)`를 하는 이유는?
-- Q2: Demo 3에서 `dup(fd)`와 `dup2(oldfd, newfd)`의 차이점은?
-- Q3: Demo 4의 패턴이 셸에서 `sort < input > output`을 실행하는 것과 어떻게 대응되나요?
+- Q1: In Demo 1, why do we call `close(fd)` after `dup2(fd, STDOUT_FILENO)`?
+- Q2: In Demo 3, what is the difference between `dup(fd)` and `dup2(oldfd, newfd)`?
+- Q3: How does the pattern in Demo 4 correspond to running `sort < input > output` in a shell?
 
-**단계 3**: 직접 수정해보기
+**Step 3**: Try modifying it yourself
 
-Demo 4를 수정하여 stderr를 별도의 에러 파일로 리다이렉트하는 기능을 추가해보세요 (`2> error.txt`에 해당).
+Modify Demo 4 to add functionality that redirects stderr to a separate error file (equivalent to `2> error.txt`).
 
 ```c
-// 힌트: stderr = fd 2
+// Hint: stderr = fd 2
 int err_fd = open("error.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
-dup2(err_fd, STDERR_FILENO);  // stderr → error.txt
+dup2(err_fd, STDERR_FILENO);  // stderr -> error.txt
 close(err_fd);
 ```
 
-### 핵심 정리
+### Key Summary
 
 ```
-셸의 리다이렉션 구현 패턴:
+Shell redirection implementation pattern:
 
   fork()
-    │
-    ├─ 자식:
-    │    1. open() 으로 파일 열기
-    │    2. dup2() 로 stdin/stdout 교체
-    │    3. close() 로 원본 fd 정리
-    │    4. exec() 로 명령어 실행
-    │
-    └─ 부모:
-         wait() 로 자식 종료 대기
+    |
+    +-- Child:
+    |    1. Open file with open()
+    |    2. Replace stdin/stdout with dup2()
+    |    3. Clean up original fd with close()
+    |    4. Run command with exec()
+    |
+    +-- Parent:
+         Wait for child termination with wait()
 ```
 
 ---
 
-## 전체 요약
+## Overall Summary
 
-이번 실습에서 배운 4가지 시스템 콜의 관계:
+The relationship between the 4 system calls learned in this lab:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    셸의 동작 원리                       │
-│                                                       │
-│   $ sort < input.txt | grep apple > output.txt       │
-│                                                       │
-│   1. pipe() → 파이프 생성                              │
-│   2. fork() → 자식1 (sort)                            │
-│      - dup2(input.txt → stdin)    [리다이렉션]         │
-│      - dup2(pipe_write → stdout)  [파이프]             │
-│      - exec("sort")                                   │
-│   3. fork() → 자식2 (grep)                            │
-│      - dup2(pipe_read → stdin)    [파이프]             │
-│      - dup2(output.txt → stdout)  [리다이렉션]         │
-│      - exec("grep", "apple")                          │
-│   4. wait() × 2                                       │
-└─────────────────────────────────────────────────────┘
++-----------------------------------------------------+
+|              How the Shell Works                     |
+|                                                      |
+|   $ sort < input.txt | grep apple > output.txt       |
+|                                                      |
+|   1. pipe() -> create pipe                           |
+|   2. fork() -> child1 (sort)                         |
+|      - dup2(input.txt -> stdin)    [redirection]     |
+|      - dup2(pipe_write -> stdout)  [pipe]            |
+|      - exec("sort")                                  |
+|   3. fork() -> child2 (grep)                         |
+|      - dup2(pipe_read -> stdin)    [pipe]            |
+|      - dup2(output.txt -> stdout)  [redirection]     |
+|      - exec("grep", "apple")                         |
+|   4. wait() x 2                                      |
++-----------------------------------------------------+
 ```
 
-| 시스템 콜 | 역할 |
-|-----------|------|
-| `fork()` | 프로세스 복제 (새 자식 생성) |
-| `exec()` | 프로세스 이미지 교체 (새 프로그램 실행) |
-| `wait()` | 자식 종료 대기 |
-| `pipe()` | 프로세스 간 통신 채널 생성 |
-| `dup2()` | 파일 디스크립터 교체 (I/O 리다이렉션) |
+| System Call | Role |
+|-------------|------|
+| `fork()` | Duplicate process (create new child) |
+| `exec()` | Replace process image (run new program) |
+| `wait()` | Wait for child termination |
+| `pipe()` | Create inter-process communication channel |
+| `dup2()` | Replace file descriptor (I/O redirection) |
 
 ---
 
-## 다음 단계
+## Next Steps
 
-이번 실습에서 배운 시스템 콜들을 조합하여 이번 주 과제에서 다음을 구현합니다:
+By combining the system calls learned in this lab, you will implement the following in this week's homework:
 
-1. **pingpong**: pipe를 사용한 양방향 통신 프로그램
-2. **minishell**: fork + exec + wait + pipe + dup2를 조합한 간단한 셸
+1. **pingpong**: A bidirectional communication program using pipes
+2. **minishell**: A simple shell combining fork + exec + wait + pipe + dup2
 
-과제 명세는 `week2/homework/README.md`를 참고하세요.
+See `week2/homework/README.md` for the homework specification.

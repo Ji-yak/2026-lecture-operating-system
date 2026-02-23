@@ -1,101 +1,101 @@
-# Week 4 과제: Parallel Hash Table
+# Week 4 Homework: Parallel Hash Table
 
-> 교재: xv6 Chapter 6 (Locking) - Exercise 4
-> 제출 파일: `hashtable.c` (수정된 파일)
+> Textbook: xv6 Chapter 6 (Locking) - Exercise 4
+> Submission file: `hashtable.c` (modified file)
 
-## 개요
+## Overview
 
-이 과제에서는 pthread 기반의 **병렬 해시 테이블**을 구현합니다.
-멀티스레드 환경에서 안전하게 동작하도록 두 가지 locking 전략을 구현하고 성능을 비교합니다.
+In this assignment, you will implement a **parallel hash table** using pthreads.
+You will implement two locking strategies to ensure safe operation in a multithreaded environment and compare their performance.
 
-- **Phase 1**: Coarse-grained locking (단일 global mutex)
-- **Phase 2**: Fine-grained locking (버킷별 mutex)
+- **Phase 1**: Coarse-grained locking (single global mutex)
+- **Phase 2**: Fine-grained locking (per-bucket mutex)
 
-## 학습 목표
+## Learning Objectives
 
-- Critical section과 mutual exclusion의 개념 이해
-- Coarse-grained vs. fine-grained locking의 trade-off 분석
-- Lock granularity가 병렬 성능에 미치는 영향 실험
-- xv6 커널의 locking 전략과의 비교 (예: `kalloc.c`의 freelist lock)
+- Understand the concepts of critical sections and mutual exclusion
+- Analyze the trade-offs of coarse-grained vs. fine-grained locking
+- Experiment with the impact of lock granularity on parallel performance
+- Compare with xv6 kernel locking strategies (e.g., the freelist lock in `kalloc.c`)
 
-## 파일 구조
+## File Structure
 
 ```
 homework/
-  skeleton/          <- 작업 디렉터리 (여기서 코딩)
-    hashtable.h      - 구조체 정의 (수정 불필요)
-    hashtable.c      - TODO가 있는 구현 파일 (이 파일을 수정)
-    main.c           - 벤치마크 코드 (수정 불필요)
-    Makefile         - 빌드 설정
-  solution/          - 참고 답안 (제출 후 공개)
-  tests/             - 테스트 스크립트
-    test_correctness.sh  - 정확성 테스트
-    test_performance.sh  - 성능 측정
+  skeleton/          <- Working directory (code here)
+    hashtable.h      - Structure definitions (no modification needed)
+    hashtable.c      - Implementation file with TODOs (modify this file)
+    main.c           - Benchmark code (no modification needed)
+    Makefile         - Build configuration
+  solution/          - Reference solution (available after submission)
+  tests/             - Test scripts
+    test_correctness.sh  - Correctness test
+    test_performance.sh  - Performance measurement
 ```
 
-## 빌드 및 실행
+## Build and Run
 
 ```bash
 cd skeleton/
 make
 
-# 실행: ./hashtable_bench [none|coarse|fine] [threads] [keys]
-./hashtable_bench none   4 100000   # locking 없음 (race condition 발생)
-./hashtable_bench coarse 4 100000   # coarse-grained
-./hashtable_bench fine   4 100000   # fine-grained
+# Run: ./hashtable_bench [none|coarse|fine] [threads] [keys]
+./hashtable_bench none   4 100000   # No locking (race condition occurs)
+./hashtable_bench coarse 4 100000   # Coarse-grained
+./hashtable_bench fine   4 100000   # Fine-grained
 ```
 
-## 과제 상세
+## Assignment Details
 
 ### Phase 1: Coarse-grained Locking
 
-`hashtable.c`를 수정하여 **단일 global mutex**로 해시 테이블을 보호하세요.
+Modify `hashtable.c` to protect the hash table with a **single global mutex**.
 
-구현 위치: `hashtable.c`의 `TODO` 주석을 찾아 수정
+Implementation location: Find the `TODO` comments in `hashtable.c` and modify them
 
-**구현 내용:**
+**What to implement:**
 
-1. `hashtable_init()`: `ht->global_lock` 초기화 (`pthread_mutex_init`)
-2. `hashtable_destroy()`: `ht->global_lock` 파괴 (`pthread_mutex_destroy`)
-3. `hashtable_insert()`: 함수 시작에서 global lock 획득, 반환 전 해제
-4. `hashtable_lookup()`: 동일
-5. `hashtable_delete()`: 동일
+1. `hashtable_init()`: Initialize `ht->global_lock` (`pthread_mutex_init`)
+2. `hashtable_destroy()`: Destroy `ht->global_lock` (`pthread_mutex_destroy`)
+3. `hashtable_insert()`: Acquire the global lock at the start of the function, release before return
+4. `hashtable_lookup()`: Same
+5. `hashtable_delete()`: Same
 
-**핵심 아이디어:**
+**Key idea:**
 ```c
 void hashtable_insert(struct hashtable *ht, int key, int value)
 {
-    // strategy가 LOCK_COARSE일 때만 lock
+    // Lock only when strategy is LOCK_COARSE
     if (ht->strategy == LOCK_COARSE)
         pthread_mutex_lock(&ht->global_lock);
 
-    // ... 기존 코드 ...
+    // ... existing code ...
 
     if (ht->strategy == LOCK_COARSE)
         pthread_mutex_unlock(&ht->global_lock);
 }
 ```
 
-**검증:**
+**Verification:**
 ```bash
 make
 ./hashtable_bench coarse 4 100000
-# "All keys found correctly." 가 출력되어야 함
+# "All keys found correctly." should be printed
 ```
 
 ### Phase 2: Fine-grained Locking
 
-**버킷별 mutex**를 사용하여 서로 다른 버킷에 접근하는 스레드가 동시에 실행되도록 하세요.
+Use **per-bucket mutexes** so that threads accessing different buckets can execute concurrently.
 
-**구현 내용:**
+**What to implement:**
 
-1. `hashtable_init()`: 각 `ht->buckets[i].lock` 초기화
-2. `hashtable_destroy()`: 각 `ht->buckets[i].lock` 파괴
-3. `hashtable_insert()`: 해당 버킷의 lock만 획득/해제
-4. `hashtable_lookup()`: 동일
-5. `hashtable_delete()`: 동일
+1. `hashtable_init()`: Initialize each `ht->buckets[i].lock`
+2. `hashtable_destroy()`: Destroy each `ht->buckets[i].lock`
+3. `hashtable_insert()`: Acquire/release only the relevant bucket's lock
+4. `hashtable_lookup()`: Same
+5. `hashtable_delete()`: Same
 
-**핵심 아이디어:**
+**Key idea:**
 ```c
 void hashtable_insert(struct hashtable *ht, int key, int value)
 {
@@ -104,30 +104,30 @@ void hashtable_insert(struct hashtable *ht, int key, int value)
     if (ht->strategy == LOCK_FINE)
         pthread_mutex_lock(&ht->buckets[idx].lock);
 
-    // ... 기존 코드 (idx 버킷에만 접근) ...
+    // ... existing code (accesses only bucket idx) ...
 
     if (ht->strategy == LOCK_FINE)
         pthread_mutex_unlock(&ht->buckets[idx].lock);
 }
 ```
 
-**검증:**
+**Verification:**
 ```bash
 ./hashtable_bench fine 4 100000
-# "All keys found correctly." 가 출력되어야 함
+# "All keys found correctly." should be printed
 ```
 
-### 성능 비교 보고
+### Performance Comparison Report
 
-1, 2, 4 threads로 coarse-grained과 fine-grained의 성능을 비교하세요.
+Compare the performance of coarse-grained and fine-grained locking with 1, 2, and 4 threads.
 
 ```bash
-# 테스트 스크립트 사용
+# Use the test script
 cd ../tests/
 ./test_performance.sh ../skeleton/hashtable_bench
 ```
 
-또는 직접 실행:
+Or run manually:
 ```bash
 # Coarse-grained
 ./hashtable_bench coarse 1 200000
@@ -140,60 +140,60 @@ cd ../tests/
 ./hashtable_bench fine 4 200000
 ```
 
-## 테스트
+## Testing
 
 ```bash
-# 정확성 테스트 (coarse, fine 모두 테스트)
+# Correctness test (tests both coarse and fine)
 cd tests/
 ./test_correctness.sh ../skeleton/hashtable_bench
 
-# 성능 테스트
+# Performance test
 ./test_performance.sh ../skeleton/hashtable_bench
 ```
 
-## 제출물
+## Deliverables
 
-1. **`hashtable.c`**: locking이 구현된 소스 코드
-2. **보고서** (짧은 텍스트 또는 주석으로 작성):
-   - 성능 측정 결과 표 (strategy x thread 수)
-   - 다음 질문에 대한 답:
+1. **`hashtable.c`**: Source code with locking implemented
+2. **Report** (written as short text or comments):
+   - Performance measurement results table (strategy x thread count)
+   - Answers to the following questions:
 
-### 보고서 질문
+### Report Questions
 
-1. `none` 모드에서 thread를 4개 사용하면 어떤 문제가 발생하는가?
-   실제로 `./hashtable_bench none 4 100000`을 실행하고 결과를 설명하세요.
+1. What problems occur when using 4 threads in `none` mode?
+   Run `./hashtable_bench none 4 100000` and explain the results.
 
-2. Coarse-grained locking에서 thread 수를 1에서 4로 늘리면 성능이 어떻게 변하는가?
-   왜 그런가?
+2. In coarse-grained locking, how does performance change when increasing the number of threads from 1 to 4?
+   Why is that?
 
-3. Fine-grained locking이 coarse-grained보다 빠른가? 그 이유는?
+3. Is fine-grained locking faster than coarse-grained? Why?
 
-4. 버킷 수(`NBUCKETS`)를 13에서 101로 변경하면 fine-grained의 성능이 어떻게 변하는가?
-   (힌트: `hashtable.h`에서 `NBUCKETS`를 수정하고 다시 빌드)
+4. How does the performance of fine-grained locking change when you change the number of buckets (`NBUCKETS`) from 13 to 101?
+   (Hint: Modify `NBUCKETS` in `hashtable.h` and rebuild)
 
-5. xv6의 `kalloc.c`에서는 어떤 locking 전략을 사용하는가?
-   Fine-grained locking으로 바꾸면 어떤 장점이 있는가?
+5. What locking strategy does xv6's `kalloc.c` use?
+   What advantages would switching to fine-grained locking provide?
 
-## 채점 기준
+## Grading Criteria
 
-| 항목 | 배점 |
-|------|------|
-| Phase 1: Coarse-grained 정확성 | 30% |
-| Phase 2: Fine-grained 정확성 | 30% |
-| 성능 측정 및 비교 | 20% |
-| 보고서 질문 답변 | 20% |
+| Item | Score |
+|------|-------|
+| Phase 1: Coarse-grained correctness | 30% |
+| Phase 2: Fine-grained correctness | 30% |
+| Performance measurement and comparison | 20% |
+| Report question answers | 20% |
 
-## 힌트
+## Hints
 
-- `hashtable.c`의 `TODO` 주석을 모두 찾아서 구현하세요.
-- `ht->strategy`를 확인하여 적절한 lock을 사용하세요.
-- Lock을 획득했으면 **모든 return 경로에서** 반드시 해제해야 합니다. (특히 `hashtable_insert`의 중간 return)
-- `pthread_mutex_init`, `pthread_mutex_lock`, `pthread_mutex_unlock`, `pthread_mutex_destroy`만 사용하면 됩니다.
-- Helper 함수를 만들면 코드가 깔끔해집니다 (solution 참고).
+- Find and implement all `TODO` comments in `hashtable.c`.
+- Check `ht->strategy` to use the appropriate lock.
+- If you acquire a lock, you **must** release it on **every return path**. (Especially the mid-function return in `hashtable_insert`)
+- You only need to use `pthread_mutex_init`, `pthread_mutex_lock`, `pthread_mutex_unlock`, and `pthread_mutex_destroy`.
+- Creating helper functions makes the code cleaner (refer to the solution).
 
-## 참고 자료
+## References
 
-- xv6 교재 Chapter 6: Locking
-- `kernel/spinlock.c`: xv6의 spinlock 구현
-- `kernel/kalloc.c`: xv6 메모리 할당기 (coarse-grained lock 사용 예)
+- xv6 textbook Chapter 6: Locking
+- `kernel/spinlock.c`: xv6's spinlock implementation
+- `kernel/kalloc.c`: xv6 memory allocator (example of coarse-grained lock usage)
 - `pthread_mutex(3)` man page
