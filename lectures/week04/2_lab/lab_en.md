@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 04 — Lab: Thread & Concurrency 1 — Race Conditions and Locks"
+title: "Week 04 — Lab: Race Conditions and Locks"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -12,26 +12,26 @@ transition: slide-left
 
 ## Week 4 — Race Conditions and Locks
 
-<div class="pt-4 text-gray-400">
 Korea University Sejong Campus, Department of Computer Science
-</div>
 
 ---
 
 # Lab Overview
 
-**Topic:** Thread & Concurrency 1 — Race Conditions and Locks
+**Duration**: ~50 minutes · 4 labs
 
-**Duration:** ~50 minutes · 4 labs
+```mermaid
+graph LR
+    L1["Lab 1<br/>Race Condition"] --> L2["Lab 2<br/>Mutex Fix"]
+    L2 --> L3["Lab 3<br/>Spinlock"]
+    L3 --> L4["Lab 4<br/>Deadlock"]
+    style L1 fill:#ffcdd2
+    style L2 fill:#c8e6c9
+    style L3 fill:#fff3e0
+    style L4 fill:#e3f2fd
+```
 
-**Objectives**
-
-- Observe non-deterministic behavior caused by unsynchronized shared state
-- Protect critical sections with `pthread_mutex`
-- Understand spinlock mechanics using atomic operations (xv6 model)
-- Reproduce a deadlock and identify the four Coffman conditions
-
-**Setup**
+**Setup**:
 
 ```bash
 cd examples/
@@ -42,171 +42,186 @@ gcc -Wall -pthread -o deadlock_demo  deadlock_demo.c
 ```
 
 ---
-layout: section
----
-
-# Lab 1
-## Race Conditions
-
----
 
 # Lab 1: Race Conditions
 
-**Goal:** Observe that `counter++` is not atomic
+**Goal**: Observe that `counter++` is **not atomic**
 
 ```bash
 ./race_demo          # 4 threads × 1,000,000 increments
+# Expected: 4,000,000  →  Actual: less, different every run!
 ```
 
-Expected: `4,000,000` — Actual: something less, different every run
+**Why?** `counter++` compiles to **three** CPU instructions:
 
-**Why?** `counter++` compiles to three CPU instructions:
-
-```
-LOAD  reg ← counter
-ADD   reg ← reg + 1
-STORE counter ← reg
-```
-
-Two threads can interleave these steps and overwrite each other's write — a **lost update**.
-
-**Experiment**
-
-```bash
-./race_demo 2 1000000   # fewer threads → fewer lost updates
-./race_demo 8 1000000   # more threads  → more lost updates
+```mermaid
+sequenceDiagram
+    participant T1 as Thread A
+    participant Mem as counter (= 0)
+    participant T2 as Thread B
+    T1->>Mem: LOAD reg ← 0
+    T2->>Mem: LOAD reg ← 0
+    T1->>Mem: STORE reg+1 → 1
+    T2->>Mem: STORE reg+1 → 1
+    Note over Mem: Expected 2, got 1!<br/>Lost update
 ```
 
-Key insight: the output is **non-deterministic** — adding print statements changes the timing.
-
----
-layout: section
----
-
-# Lab 2
-## Mutex Protection
+**Experiment**: Try `./race_demo 2 1000000` vs `./race_demo 8 1000000`
+- More threads → more lost updates. Output is **non-deterministic**.
 
 ---
 
 # Lab 2: Mutex Protection
 
-**Goal:** Eliminate the race with `pthread_mutex`
+**Goal**: Eliminate the race with `pthread_mutex`
 
-```bash
-./mutex_fix   # always prints 4,000,000
-```
-
-**The fix — three lines around the critical section:**
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 ```c
 pthread_mutex_lock(&lock);
-counter++;                   // critical section
+counter++;                // critical section
 pthread_mutex_unlock(&lock);
 ```
 
-- `lock()` — if mutex is free, acquire it; otherwise **sleep** until it is free
-- `unlock()` — release the mutex and wake one waiting thread
-
-**Performance trade-off**
-
 ```bash
-time ./race_demo  4 1000000   # fast but wrong
-time ./mutex_fix  4 1000000   # correct but slower
+./mutex_fix   # always prints 4,000,000 ✓
 ```
 
-Rule of thumb: keep the critical section **as small as possible** to minimize contention.
+</div>
+<div>
 
----
-layout: section
----
+```mermaid
+sequenceDiagram
+    participant T1 as Thread A
+    participant L as Mutex
+    participant T2 as Thread B
+    T1->>L: lock() ✅
+    Note over T1: counter++
+    T2->>L: lock() ⏳ blocked
+    T1->>L: unlock()
+    T2->>L: lock() ✅
+    Note over T2: counter++
+    T2->>L: unlock()
+```
 
-# Lab 3
-## Spinlock
+</div>
+</div>
+
+**Performance trade-off**: `time ./race_demo` (fast, wrong) vs `time ./mutex_fix` (correct, slower)
+
+> Rule: keep the critical section **as small as possible** to minimize contention.
 
 ---
 
 # Lab 3: Spinlock (xv6 Model)
 
-**Goal:** Understand atomic test-and-set and why kernels prefer spinlocks
+**Spinlock** = busy-wait using atomic test-and-set (no sleeping)
+
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 **User-space spinlock core:**
 
 ```c
 // acquire
-while (__sync_lock_test_and_set(&lock->locked, 1) != 0)
-    ;   // spin — burn CPU until the lock is free
+while (__sync_lock_test_and_set(
+    &lock->locked, 1) != 0)
+    ;   // spin — burn CPU
 
 // release
 __sync_lock_release(&lock->locked);
 ```
 
-**xv6 `kernel/spinlock.c` — additional requirements:**
+**xv6 adds** (`kernel/spinlock.c`):
 
 ```c
-void acquire(struct spinlock *lk) {
-    push_off();   // disable interrupts (prevent self-deadlock)
-    while (__sync_lock_test_and_set(&lk->locked, 1) != 0)
-        ;
-    __sync_synchronize();   // full memory barrier
-    lk->cpu = mycpu();
-}
+push_off();   // disable interrupts
+while (__sync_lock_test_and_set(...))
+    ;
+__sync_synchronize(); // memory barrier
+lk->cpu = mycpu();
+```
+
+</div>
+<div>
+
+**Mutex vs Spinlock**:
+
+```mermaid
+graph TD
+    subgraph "Mutex"
+        M1["Thread blocked"] --> M2["💤 Sleep<br/>no CPU used"]
+        M2 --> M3["Wake on unlock"]
+    end
+    subgraph "Spinlock"
+        S1["Thread blocked"] --> S2["🔄 Spin<br/>burns CPU!"]
+        S2 --> S3["Proceed on unlock"]
+    end
+    style M2 fill:#c8e6c9
+    style S2 fill:#ffcdd2
 ```
 
 | | Mutex | Spinlock |
 |---|---|---|
-| Waiting thread | Sleeps (no CPU) | Spins (burns CPU) |
-| Best for | Long critical sections | Very short kernel sections |
+| Wait | Sleep (no CPU) | Spin (burns CPU) |
+| Best for | Long sections | Very short kernel sections |
 
----
-layout: section
----
-
-# Lab 4
-## Deadlock
+</div>
+</div>
 
 ---
 
 # Lab 4: Deadlock Scenario
 
-**Goal:** Observe deadlock and recognize the four Coffman conditions
+**Two threads, two locks** — classic circular wait:
 
-```bash
-./deadlock_demo   # may hang — kill with: kill -9 $(pgrep deadlock_demo)
+```mermaid
+graph LR
+    TA["Thread A<br/>holds lock1"] -->|"wants"| LB["lock2"]
+    TB["Thread B<br/>holds lock2"] -->|"wants"| LA["lock1"]
+    LA -.->|held by| TA
+    LB -.->|held by| TB
+    style TA fill:#ffcdd2
+    style TB fill:#ffcdd2
+    style LA fill:#fff3e0
+    style LB fill:#fff3e0
 ```
 
-**What happens:**
+```bash
+./deadlock_demo   # hangs! kill with: Ctrl-C
+```
 
-| Thread A | Thread B |
+**Four Coffman conditions** (ALL must hold for deadlock):
+
+| Condition | Description |
 |---|---|
-| acquire `lock1` | acquire `lock2` |
-| … wait for `lock2` | … wait for `lock1` |
+| **Mutual exclusion** | Only one thread holds a lock at a time |
+| **Hold and wait** | Hold one lock while requesting another |
+| **No preemption** | Locks cannot be forcibly taken away |
+| **Circular wait** | A cycle in the dependency graph |
 
-Neither can proceed. **Circular wait.**
-
-**Four Coffman conditions** (all must hold for deadlock):
-
-1. **Mutual exclusion** — only one thread may hold a lock at a time
-2. **Hold and wait** — a thread holds one lock while requesting another
-3. **No preemption** — locks cannot be forcibly taken away
-4. **Circular wait** — a cycle exists in the dependency graph
-
-**Fix:** enforce a global lock-acquisition order — every thread acquires `lock1` before `lock2`.
+**Fix**: enforce global lock ordering — always acquire `lock1` before `lock2`.
 
 ---
 
 # Key Takeaways
 
-**Race conditions** arise from unsynchronized access to shared mutable state.
+```mermaid
+graph TD
+    RC["🔴 Race Condition<br/>unsynchronized shared state"] -->|fix with| MU["🟢 Mutex<br/>sleep-based lock"]
+    RC -->|fix with| SP["🟡 Spinlock<br/>busy-wait lock"]
+    MU --> DL["🔵 Deadlock<br/>circular wait"]
+    SP --> DL
+    DL -->|prevent with| LO["✅ Lock Ordering<br/>break circular wait"]
+    style RC fill:#ffcdd2
+    style MU fill:#c8e6c9
+    style SP fill:#fff3e0
+    style DL fill:#bbdefb
+    style LO fill:#c8e6c9
+```
 
-**Mutex** (`pthread_mutex`) puts waiting threads to sleep — correct and efficient for user-space.
-
-**Spinlock** busy-waits using atomic instructions — preferred in kernels for very short critical sections.
-- xv6 adds `push_off()` (disable interrupts) + `__sync_synchronize()` (memory barrier)
-
-**Deadlock** requires all four Coffman conditions — break any one to prevent it.
-- Most practical fix: enforce a consistent **lock-ordering** across all threads.
-
-**You will see these in xv6:**
-- `kernel/spinlock.c` — `acquire` / `release`
+**You will see these in xv6**:
+- `kernel/spinlock.c` — `acquire` / `release` with interrupt disable
 - `kernel/kalloc.c` — memory allocator guarded by a spinlock
 - `kernel/proc.c` — process table locked per-entry

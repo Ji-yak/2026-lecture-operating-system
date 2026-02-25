@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 06 — Lab: CPU Scheduling — Context Switching"
+title: "Week 06 — Lab: Context Switching"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -12,124 +12,124 @@ transition: slide-left
 
 ## Week 6 — Context Switching
 
-<div class="pt-4 text-gray-400">
 Korea University Sejong Campus, Department of Computer Science
-</div>
 
 ---
 
 # Lab Overview
 
-**Topic:** CPU Scheduling — Context Switching in xv6
+**Duration**: ~50 minutes · 4 exercises
 
-**Duration:** ~50 minutes · 4 exercises
-
-**Objectives**
-
-- Read `swtch.S` and explain what each instruction does and why
-- Instrument the xv6 scheduler with `printf` to observe scheduling decisions live
-- Trace round-robin behavior with multiple competing processes
-- Add sleep/wakeup trace output and follow a process through blocking and unblocking
-
-**Prerequisites**
-
-```bash
-# Working QEMU + xv6 build environment required
-cd xv6-riscv
-make qemu   # verify clean boot before starting
+```mermaid
+graph LR
+    E1["Ex 1<br/>swtch.S"] --> E2["Ex 2<br/>Scheduler Trace"]
+    E2 --> E3["Ex 3<br/>Round-Robin"]
+    E3 --> E4["Ex 4<br/>sleep/wakeup"]
+    style E1 fill:#e3f2fd
+    style E2 fill:#fff3e0
+    style E3 fill:#e8f5e9
+    style E4 fill:#fce4ec
 ```
 
----
-layout: section
----
+**Prerequisites**:
 
-# Exercise 1
-## swtch.S Analysis
+```bash
+cd xv6-riscv && make qemu   # verify clean boot
+```
 
 ---
 
 # Exercise 1: swtch.S Analysis
 
-**Files:** `kernel/swtch.S`, `kernel/proc.h`
+**Files**: `kernel/swtch.S`, `kernel/proc.h`
 
-**`struct context` — only callee-saved registers:**
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+**`struct context`** — only **callee-saved** registers:
 
 ```c
 struct context {
-  uint64 ra;   uint64 sp;           // return address + stack pointer
-  uint64 s0;   uint64 s1;           // callee-saved: s0 – s11
+  uint64 ra;  // return address
+  uint64 sp;  // stack pointer
+  uint64 s0;  // s0 – s11
+  uint64 s1;
   /* ... s2 through s11 ... */
 };
 ```
 
-Caller-saved registers (`t0`–`t6`, `a0`–`a7`) are already on the stack — no need to save them again.
-
-**`swtch(old, new)` — save current, load next:**
+**`swtch(old, new)`:**
 
 ```asm
 swtch:
-    sd ra, 0(a0)  ;  sd sp, 8(a0)  ;  sd s0, 16(a0) ...  # save → old context
-    ld ra, 0(a1)  ;  ld sp, 8(a1)  ;  ld s0, 16(a1) ...  # load ← new context
-    ret                                                     # jump to new->ra
+  sd ra, 0(a0)   # save to old
+  sd sp, 8(a0)
+  sd s0, 16(a0) ...
+  ld ra, 0(a1)   # load from new
+  ld sp, 8(a1)
+  ld s0, 16(a1) ...
+  ret             # jump to new->ra
 ```
 
-`ret` jumps to the `ra` loaded from the **new** context — execution resumes inside the new process where it last called `swtch`.
+</div>
+<div>
 
-New process bootstrap: `allocproc` sets `p->context.ra = (uint64)forkret`.
+**Context switch flow:**
 
----
-layout: section
----
+```mermaid
+graph TD
+    P1["Process A<br/>(running)"] -->|"1. save regs<br/>to A.context"| SW["swtch()"]
+    SW -->|"2. load regs<br/>from B.context"| P2["Process B<br/>(resumes)"]
+    SW -->|"ret jumps to<br/>B's saved ra"| P2
+    style P1 fill:#ffcdd2
+    style P2 fill:#c8e6c9
+    style SW fill:#fff3e0
+```
 
-# Exercise 2
-## Scheduler Tracing
+**New process bootstrap**: `allocproc()` sets `p->context.ra = forkret` so the first `swtch` into a new process lands in `forkret()`.
+
+</div>
+</div>
 
 ---
 
 # Exercise 2: Scheduler Tracing
 
-**Goal:** Make the scheduler visible with `printf`
+**Goal**: Make the scheduler visible with `printf`
 
 **Edit `kernel/proc.c` — inside `scheduler()`:**
 
 ```c
 if (p->state == RUNNABLE) {
     printf("[sched] cpu%d: switch to pid=%d name=%s\n",
-           cpuid(), p->pid, p->name);   // add this line
+           cpuid(), p->pid, p->name);   // ← add this
     p->state = RUNNING;
     c->proc = p;
     swtch(&c->context, &p->context);
-    c->proc = 0;
-    found = 1;
-}
 ```
 
-Alternatively, apply the provided patch: `git apply scheduler_trace.patch`
-
-**Build and observe:**
+Or apply: `git apply scheduler_trace.patch`
 
 ```bash
 make clean && make CPUS=1 qemu   # single CPU for readable output
 ```
 
-**What to look for:**
-- pid 1 (`init`) is scheduled first — confirm this
-- After the shell prompt appears, scheduling output should stop — the shell is **sleeping** waiting for keyboard input (SLEEPING state, not RUNNABLE)
-
----
-layout: section
----
-
-# Exercise 3
-## Round-Robin Observation
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant Init as pid=1 (init)
+    participant Sh as pid=2 (sh)
+    S->>Init: switch to pid=1
+    Init->>S: yield (spawns sh)
+    S->>Sh: switch to pid=2
+    Note over Sh: waiting for keyboard<br/>(SLEEPING, not scheduled)
+```
 
 ---
 
 # Exercise 3: Round-Robin Observation
 
-**Goal:** See the round-robin policy in action with competing processes
-
-**Start multiple background processes in the xv6 shell:**
+**Start multiple background processes in xv6 shell:**
 
 ```
 $ spin &
@@ -137,17 +137,23 @@ $ spin &
 $ spin &
 ```
 
-**Expected trace output:**
-
+```mermaid
+sequenceDiagram
+    participant S as Scheduler
+    participant P3 as pid=3 (spin)
+    participant P4 as pid=4 (spin)
+    participant P5 as pid=5 (spin)
+    S->>P3: switch to pid=3
+    P3->>S: timer interrupt
+    S->>P4: switch to pid=4
+    P4->>S: timer interrupt
+    S->>P5: switch to pid=5
+    P5->>S: timer interrupt
+    S->>P3: switch to pid=3
+    Note over S,P5: Round-robin cycle repeats
 ```
-[sched] cpu0: switch to pid=3 name=spin
-[sched] cpu0: switch to pid=4 name=spin
-[sched] cpu0: switch to pid=5 name=spin
-[sched] cpu0: switch to pid=3 name=spin
-...
-```
 
-**Why round-robin?** The scheduler scans `proc[]` linearly from index 0:
+**Why round-robin?** The scheduler scans `proc[]` linearly:
 
 ```c
 for (p = proc; p < &proc[NPROC]; p++) {
@@ -155,66 +161,63 @@ for (p = proc; p < &proc[NPROC]; p++) {
 }
 ```
 
-**Subtle bias:** after a context switch, the loop resumes scanning from the beginning — lower-index processes are checked first every cycle.
+**Subtle bias**: lower-index processes checked first every cycle.
 
-**Multi-CPU experiment:** rebuild with `CPUS=3` — multiple CPUs pick up different processes simultaneously, producing interleaved output.
-
----
-layout: section
----
-
-# Exercise 4
-## sleep/wakeup Tracing
+**Multi-CPU**: rebuild with `CPUS=3` → multiple CPUs pick different processes simultaneously.
 
 ---
 
 # Exercise 4: sleep/wakeup Tracing
 
-**Goal:** Follow a process as it blocks on a pipe and gets unblocked
+**Goal**: Follow a process through blocking and unblocking
 
 **Add trace to `kernel/proc.c` — `sleep()` function:**
 
 ```c
 printf("[sleep]  pid=%d name=%s chan=%p\n", p->pid, p->name, chan);
-p->chan = chan;
 p->state = SLEEPING;
 sched();
-p->chan = 0;
 printf("[wakeup] pid=%d name=%s\n", p->pid, p->name);
 ```
 
-**Test in xv6 shell:**
+**Test**: `echo hello | cat` in xv6 shell
 
+```mermaid
+sequenceDiagram
+    participant Cat as cat (pid=3)
+    participant Sched as Scheduler
+    participant Echo as echo (pid=4)
+    Cat->>Sched: sleep(pipe) — buffer empty
+    Sched->>Echo: switch to echo
+    Echo->>Echo: write "hello" to pipe
+    Echo->>Cat: wakeup(pipe)
+    Note over Cat: state → RUNNABLE
+    Echo->>Sched: exit
+    Sched->>Cat: switch to cat
+    Cat->>Cat: read "hello", print it
 ```
-$ echo hello | cat
-```
 
-**Expected output sequence:**
-
-```
-[sleep]  pid=3 name=cat  chan=0x...   ← cat waits: pipe is empty
-[sched]  cpu0: switch to pid=4 name=echo
-[wakeup] pid=3 name=cat              ← echo wrote data; cat is RUNNABLE
-[sched]  cpu0: switch to pid=3 name=cat
-hello
-```
-
-`wakeup` only changes state to RUNNABLE — the woken process does **not** run immediately.
-
-**Cleanup:** `git checkout kernel/proc.c` (or reverse-apply patch) before next week.
+`wakeup` only sets state to RUNNABLE — the woken process does **not** run immediately.
 
 ---
 
 # Key Takeaways
 
-**`swtch.S`** saves callee-saved registers to `old->context` and loads them from `new->context`. The final `ret` jumps to `new->ra`, resuming the new process exactly where it last called `swtch`.
+```mermaid
+graph TD
+    Y["yield()"] --> SCH["sched()"]
+    SCH --> SW["swtch(old, new)"]
+    SW -->|"save old regs"| CTX1["old context"]
+    SW -->|"load new regs"| CTX2["new context"]
+    CTX2 --> RET["ret → new->ra"]
+    style Y fill:#e3f2fd
+    style SW fill:#fff3e0
+    style RET fill:#c8e6c9
+```
 
-**Scheduler loop** is a linear scan of `proc[]` for RUNNABLE processes — simple round-robin with a low-index bias.
-
-**Round-robin** ensures fairness: every RUNNABLE process gets a turn before any process gets a second turn (within one scan of the table).
-
-**sleep/wakeup** is xv6's blocking mechanism:
-- `sleep(chan, lk)` — set state to SLEEPING, call `sched()`; atomically releases `lk` to avoid lost wakeups
-- `wakeup(chan)` — scan all processes; set matching SLEEPING processes to RUNNABLE
-
-**End-to-end flow:** `yield` → `sched` → `swtch` (to scheduler) → `swtch` (to next process) → resume
+| Concept | Key Insight |
+|---|---|
+| **swtch.S** | Save callee-saved regs → load new regs → `ret` to `new->ra` |
+| **Scheduler** | Linear scan of `proc[]` for RUNNABLE — simple round-robin |
+| **sleep/wakeup** | `sleep(chan, lk)` → SLEEPING; `wakeup(chan)` → RUNNABLE |
+| **End-to-end** | yield → sched → swtch (to scheduler) → swtch (to next) → resume |

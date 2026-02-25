@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 09 — Lab: Synchronization — sleep/wakeup, pipe"
+title: "Week 09 — Lab: sleep/wakeup and Pipes"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -12,23 +12,13 @@ transition: slide-left
 
 ## Week 9 — sleep/wakeup and Pipes
 
-<div class="pt-4 text-gray-400">
 Korea University Sejong Campus, Department of Computer Science
-</div>
 
 ---
 
 # Lab Overview
 
-**Topic**: xv6 Synchronization Primitives — sleep/wakeup and Pipes
-
-**Objectives**
-- Analyze xv6's `sleep()` and `wakeup()` implementation and understand the channel concept
-- Trace how pipes use sleep/wakeup to implement producer-consumer coordination
-- Write an inter-process communication program using xv6 pipes
-- Understand the lost wakeup problem and how proper locking prevents it
-
-**Exercises**
+**Objectives**: Analyze xv6 synchronization primitives at the source-code level
 
 | # | Topic | Time |
 |---|-------|------|
@@ -37,18 +27,20 @@ Korea University Sejong Campus, Department of Computer Science
 | 3 | Producer-consumer with pipes | 15 min |
 | 4 | Lost wakeup problem | 5 min |
 
----
-layout: section
----
-
-# Exercise 1
-## sleep/wakeup Code Analysis
+```mermaid
+graph LR
+    E1["Ex 1<br/>sleep/wakeup"] --> E2["Ex 2<br/>Pipe internals"]
+    E2 --> E3["Ex 3<br/>Producer-Consumer"]
+    E3 --> E4["Ex 4<br/>Lost Wakeup"]
+    style E1 fill:#e3f2fd
+    style E2 fill:#fff3e0
+    style E3 fill:#e8f5e9
+    style E4 fill:#fce4ec
+```
 
 ---
 
 # Exercise 1: sleep/wakeup
-
-**Key concepts**: sleep channel, wakeup broadcast, lock protocol
 
 **`sleep(chan, lk)`** — `kernel/proc.c`
 
@@ -62,116 +54,129 @@ void sleep(void *chan, struct spinlock *lk) {
   sched();             // (4) yield CPU to scheduler
   p->chan = 0;
   release(&p->lock);
-  acquire(lk);         // (5) re-acquire condition lock on wakeup
+  acquire(lk);         // (5) re-acquire condition lock
 }
 ```
 
-**`wakeup(chan)`** — scans entire process table, sets matching `SLEEPING` processes to `RUNNABLE`
+```mermaid
+graph LR
+    A["acquire p->lock"] --> B["release cond lock"]
+    B --> C["state = SLEEPING"]
+    C --> D["sched() → yield CPU"]
+    D --> E["... woken up ..."]
+    E --> F["re-acquire cond lock"]
+    style C fill:#ffcdd2
+    style E fill:#c8e6c9
+```
 
-- Channel = an arbitrary address used as an event identifier (e.g., `&pi->nread`)
-- `wakeup` is a **broadcast**: all processes sleeping on `chan` are woken up
-- Callers must re-check the condition after wakeup (spurious wakeup is possible)
-
----
-layout: section
----
-
-# Exercise 2
-## Pipe Implementation Analysis
+- **Channel** = arbitrary address as event ID (e.g., `&pi->nread`)
+- `wakeup(chan)` is a **broadcast**: all processes sleeping on `chan` become RUNNABLE
 
 ---
 
 # Exercise 2: Pipe Implementation
 
-**Pipe buffer** — circular buffer of 512 bytes (`kernel/pipe.c`)
+**Circular buffer** of 512 bytes — `kernel/pipe.c`
+
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 ```c
 struct pipe {
   struct spinlock lock;
-  char data[PIPESIZE];  // PIPESIZE = 512
-  uint nread;           // total bytes read (monotonically increasing)
-  uint nwrite;          // total bytes written
+  char data[PIPESIZE]; // 512
+  uint nread;          // monotonic
+  uint nwrite;         // monotonic
   int readopen;
   int writeopen;
 };
-// index = nread % PIPESIZE  |  full: nwrite == nread + PIPESIZE
+// index = nread % PIPESIZE
+// full: nwrite == nread + PIPESIZE
 ```
 
-**`pipewrite` / `piperead` sleep/wakeup relationship**
+</div>
+<div>
 
-| Situation | sleep channel | Woken up by |
-|-----------|--------------|-------------|
-| Writer: buffer full | `&pi->nwrite` | Reader calls `wakeup(&pi->nwrite)` |
-| Reader: buffer empty | `&pi->nread` | Writer calls `wakeup(&pi->nread)` |
+```mermaid
+graph TD
+    subgraph "Pipe Buffer (circular)"
+        direction LR
+        W["nwrite"] --> |"data flows"| R["nread"]
+    end
+    WR["pipewrite()"] -->|"writes to buffer"| W
+    RD["piperead()"] -->|"reads from buffer"| R
+    WR -->|"buffer full?"| S1["sleep(&pi->nwrite)"]
+    RD -->|"buffer empty?"| S2["sleep(&pi->nread)"]
+    S1 -.->|"woken by reader"| WR
+    S2 -.->|"woken by writer"| RD
+    style S1 fill:#ffcdd2
+    style S2 fill:#ffcdd2
+```
 
-- Both sides hold `pi->lock` before checking the condition
-- `sleep()` atomically releases `pi->lock` while transitioning to `SLEEPING`
-- EOF: when write end closes, `piperead` exits the wait loop and returns 0
+</div>
+</div>
 
----
-layout: section
----
-
-# Exercise 3
-## Producer-Consumer with Pipes
+**EOF**: when write end closes, `piperead` exits the wait loop and returns 0.
 
 ---
 
 # Exercise 3: Producer-Consumer with Pipes
 
-**Pattern**: parent = producer (writes), child = consumer (reads)
+**Pattern**: parent = producer, child = consumer
 
 ```c
 int fds[2];
 pipe(fds);
 int pid = fork();
 
-if (pid == 0) {
-  // Child — Consumer
-  close(fds[1]);              // close unused write end
-  char buf[64];
-  int n;
-  while ((n = read(fds[0], buf, sizeof(buf))) > 0)
-    printf("[Consumer] %s\n", buf);
-  close(fds[0]);
-  exit(0);
-} else {
-  // Parent — Producer
-  close(fds[0]);              // close unused read end
-  for (int i = 0; i < 5; i++)
-    write(fds[1], "hello from producer", 19);
-  close(fds[1]);              // signals EOF to consumer
-  wait(0);
-  exit(0);
+if (pid == 0) {                  // Child — Consumer
+    close(fds[1]);
+    char buf[64]; int n;
+    while ((n = read(fds[0], buf, sizeof(buf))) > 0)
+        printf("[Consumer] %s\n", buf);
+    close(fds[0]);
+    exit(0);
+} else {                         // Parent — Producer
+    close(fds[0]);
+    for (int i = 0; i < 5; i++)
+        write(fds[1], "hello", 5);
+    close(fds[1]);               // signals EOF
+    wait(0);
 }
 ```
 
-**Key points**
-- Close the unused pipe end in each process immediately after `fork()`
-- Producer closing `fds[1]` causes consumer's `read()` to return 0 (EOF)
-- If consumer runs first, it blocks in `piperead` until producer writes
-
----
-layout: section
----
-
-# Exercise 4
-## Lost Wakeup Problem
+```mermaid
+sequenceDiagram
+    participant P as Parent (Producer)
+    participant Pipe as Pipe Buffer
+    participant C as Child (Consumer)
+    P->>Pipe: write("hello")
+    Pipe->>C: wakeup → read("hello")
+    P->>Pipe: write("hello")
+    P->>Pipe: close(write end)
+    Pipe->>C: read() returns 0 (EOF)
+    C->>C: exit
+    P->>P: wait() → reap child
+```
 
 ---
 
 # Exercise 4: Lost Wakeup Problem
 
-**The problem**: a wakeup can be lost if the process is not yet sleeping
+**The problem**: wakeup arrives while the process is **not yet sleeping**
 
-```
-Time  Reader (CPU 0)               Writer (CPU 1)
-  1   check: buffer empty → true
-  2   release(&pi->lock)           acquire(&pi->lock)
-  3                                write data
-  4                                wakeup(&pi->nread)  ← reader not SLEEPING yet!
-  5                                release(&pi->lock)
-  6   broken_sleep(&pi->nread)     ← sleeps forever, no one to wake it
+```mermaid
+sequenceDiagram
+    participant R as Reader (CPU 0)
+    participant W as Writer (CPU 1)
+    R->>R: check: buffer empty → true
+    R->>R: release(pi->lock)
+    W->>W: acquire(pi->lock)
+    W->>W: write data to buffer
+    W->>W: wakeup(&pi->nread)
+    Note over R: NOT SLEEPING YET!<br/>wakeup is LOST
+    R->>R: sleep(&pi->nread)
+    Note over R: 💀 Sleeps forever
 ```
 
 **xv6's fix**: pass the condition lock to `sleep()`
@@ -179,30 +184,32 @@ Time  Reader (CPU 0)               Writer (CPU 1)
 ```c
 // Inside sleep():
 acquire(&p->lock);   // hold p->lock ...
-release(lk);         // ... before releasing condition lock
-p->state = SLEEPING; // state is set while p->lock is still held
-sched();             // scheduler releases p->lock only after context switch
+release(lk);         // ... BEFORE releasing condition lock
+p->state = SLEEPING; // state set while p->lock held
+sched();
 ```
 
-- Writer's `wakeup()` must `acquire(&p->lock)` to change `p->state`
-- Because `p->lock` is held until after `p->state = SLEEPING`, there is **no gap**
-- "Check condition → go to sleep" is effectively **atomic** under `p->lock`
+- Writer's `wakeup()` must acquire `p->lock` to see `p->state`
+- Because `p->lock` is held until after `SLEEPING` is set → **no gap**
+- "Check condition → go to sleep" is effectively **atomic**
 
 ---
 
 # Key Takeaways
 
-**sleep/wakeup**
-- `sleep(chan, lk)` — releases `lk` atomically with entering `SLEEPING` state
-- `wakeup(chan)` — broadcasts to all processes sleeping on `chan`
-- Channel is any address that uniquely identifies a wait condition
+```mermaid
+graph TD
+    SW["sleep(chan, lk)"] -->|"releases lk atomically<br/>with entering SLEEPING"| SC["Scheduler"]
+    WU["wakeup(chan)"] -->|"broadcasts to all<br/>sleeping on chan"| RN["→ RUNNABLE"]
+    PI["Pipe"] -->|"uses sleep/wakeup<br/>for flow control"| PC["Producer-<br/>Consumer"]
+    LW["Lost Wakeup"] -->|"prevented by<br/>lock overlap"| SW
+    style SW fill:#e3f2fd
+    style WU fill:#c8e6c9
+    style LW fill:#ffcdd2
+```
 
-**Pipes**
-- Circular buffer with `nread` / `nwrite` counters
-- Automatic flow control: full buffer blocks writer; empty buffer blocks reader
-- EOF detected when `writeopen == 0` and buffer is empty
-
-**Lost wakeup prevention**
-- Always pass the condition lock to `sleep()`
-- xv6 rule: `acquire(p->lock)` before `release(lk)` inside `sleep()`
-- The lock overlap closes the race window between condition check and sleep
+| Concept | Key Insight |
+|---|---|
+| **sleep/wakeup** | Channel = any address; always recheck condition after wakeup |
+| **Pipe** | Circular buffer with automatic flow control (full→block writer, empty→block reader) |
+| **Lost wakeup** | Fixed by holding `p->lock` across condition check + state change |

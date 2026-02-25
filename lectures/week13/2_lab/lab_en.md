@@ -12,158 +12,134 @@ transition: slide-left
 
 ## Week 13 — File System Internals
 
----
-
-layout: section
-
----
-
-# Lab Overview
+Korea University Sejong Campus, Department of Computer Science
 
 ---
 
 # Lab Overview
 
 - **Goal**: Analyze the xv6 file system layer by layer, trace file operations end-to-end
-- **Duration**: ~50 minutes
-- **4 Exercises**:
-  1. Buffer cache — LRU replacement, sleep-locks, cache hits/misses
-  2. Logging system — write-ahead logging, 4-stage commit, crash recovery
-  3. File creation tracing — complete call chain from `sys_open` to `dirlink`
-  4. Large file support — direct, single/double/triple indirect blocks and size limits
+- **Duration**: ~50 minutes · 4 exercises
 - **Reference**: `kernel/bio.c`, `kernel/log.c`, `kernel/fs.c`, `kernel/sysfile.c`
 
----
-
-# xv6 File System Layers
-
-```
-┌─────────────────────────────┐
-│  6. File Descriptors         │  open(), read(), write(), close()
-├─────────────────────────────┤
-│  5. Pathnames                │  namei(), nameiparent()
-├─────────────────────────────┤
-│  4. Directories              │  dirlookup(), dirlink()
-├─────────────────────────────┤
-│  3. Inodes                   │  ialloc(), iget(), iput(), readi(), writei()
-├─────────────────────────────┤
-│  2. Logging                  │  begin_op(), log_write(), end_op()
-├─────────────────────────────┤
-│  1. Buffer Cache             │  bread(), bwrite(), brelse()
-└─────────────────────────────┘
-          │
-     Block Device (virtio disk)
+```mermaid
+graph LR
+    E1["Ex 1<br/>Buffer Cache"] --> E2["Ex 2<br/>Logging"]
+    E2 --> E3["Ex 3<br/>File Creation"]
+    E3 --> E4["Ex 4<br/>Large Files"]
+    style E1 fill:#e3f2fd
+    style E2 fill:#fff3e0
+    style E3 fill:#e8f5e9
+    style E4 fill:#fce4ec
 ```
 
-- Each layer relies only on the layer below it
-- Crash safety is the responsibility of the **logging** layer
-- The **buffer cache** ensures only one in-memory copy of each disk block exists at a time
-
 ---
 
-layout: section
+# xv6 File System — 6 Layers
 
----
+```mermaid
+graph TD
+    L6["6. File Descriptors<br/>open(), read(), write(), close()"] --> L5
+    L5["5. Pathnames<br/>namei(), nameiparent()"] --> L4
+    L4["4. Directories<br/>dirlookup(), dirlink()"] --> L3
+    L3["3. Inodes<br/>ialloc(), iget(), readi(), writei()"] --> L2
+    L2["2. Logging<br/>begin_op(), log_write(), end_op()"] --> L1
+    L1["1. Buffer Cache<br/>bread(), bwrite(), brelse()"] --> DISK["Block Device<br/>(virtio disk)"]
+    style L6 fill:#e3f2fd
+    style L5 fill:#bbdefb
+    style L4 fill:#c8e6c9
+    style L3 fill:#fff3e0
+    style L2 fill:#fce4ec
+    style L1 fill:#f3e5f5
+    style DISK fill:#eeeeee
+```
 
-# Exercise 1
+- Each layer relies **only** on the layer below
+- **Logging** provides crash safety
+- **Buffer cache** ensures one in-memory copy per disk block
 
 ---
 
 # Exercise 1: Buffer Cache
 
-**Purpose**: Cache disk blocks in memory; serialize access so only one copy exists per block.
+**Purpose**: Cache disk blocks in memory; serialize access with sleep-locks
 
-**Key functions in `kernel/bio.c`**:
+**Key functions in `kernel/bio.c`:**
 
 | Function | Role |
 |---|---|
-| `binit()` | Initialize the cache; link all `buf` structs into a doubly-linked LRU list |
-| `bget()` | Return cached block or evict LRU unused entry |
-| `bread()` | Call `bget()`; read from disk if not valid |
+| `binit()` | Initialize doubly-linked LRU list |
+| `bget()` | Return cached block or evict LRU entry |
+| `bread()` | `bget()` + read from disk if not valid |
 | `bwrite()` | Write buffer to disk |
-| `brelse()` | Release buffer; move to MRU end of LRU list |
+| `brelse()` | Release buffer; move to MRU end |
 
-**LRU replacement**:
-- `buf.refcnt == 0` means the buffer is evictable
-- `bget()` scans from MRU → LRU to find the least recently used evictable block
-- `brelse()` moves the buffer to the head (MRU end) after use
+```mermaid
+graph LR
+    REQ["bread(dev, blockno)"] --> BG["bget()"]
+    BG --> HIT{"Cache hit?"}
+    HIT -->|Yes| RET["Return buffer ✅"]
+    HIT -->|No| EVICT["Evict LRU<br/>(refcnt == 0)"]
+    EVICT --> READ["Read from disk"]
+    READ --> RET
+    style HIT fill:#fff3e0
+    style RET fill:#c8e6c9
+    style EVICT fill:#ffcdd2
+```
 
-**Sleep-locks**: each buffer holds a `sleeplock`; only one process may hold a buffer at a time — others sleep until it is released.
-
----
-
-layout: section
-
----
-
-# Exercise 2
+- `buf.refcnt == 0` → evictable
+- Each buffer has a **sleeplock** — one process at a time
 
 ---
 
 # Exercise 2: Logging System
 
-**Purpose**: Write-ahead logging (WAL) guarantees that disk writes are atomic across crashes.
+**Write-ahead logging (WAL)** — guarantees atomic multi-block updates across crashes
 
-**4-stage commit cycle**:
-
-```
-begin_op()        ← increment outstanding op count; wait if log is full
-  │
-log_write(b)      ← record block number; pin buffer in cache
-  │
-end_op()          ← decrement count; if last op, call commit()
-  │
-  └─ commit()
-       ├─ write_log()       write modified blocks to log region on disk
-       ├─ write_head()      write log header to disk (makes commit durable)
-       ├─ install_trans()   copy log blocks to their real disk locations
-       └─ write_head(0)     clear log header (marks log as empty)
+```mermaid
+graph TD
+    BO["begin_op()<br/>increment op count;<br/>wait if log full"] --> LW["log_write(b)<br/>record block number;<br/>pin buffer"]
+    LW --> EO["end_op()<br/>decrement count"]
+    EO --> C{"Last op?"}
+    C -->|Yes| CM["commit()"]
+    CM --> WL["write_log()<br/>blocks → log region"]
+    WL --> WH["write_head()<br/>commit point ✅"]
+    WH --> IT["install_trans()<br/>log → real locations"]
+    IT --> CL["write_head(0)<br/>clear log"]
+    C -->|No| DONE["Wait for others"]
+    style WH fill:#c8e6c9
+    style CM fill:#fff3e0
 ```
 
 **Crash recovery** (`recover_from_log()` at boot):
-- If log header shows a committed transaction, re-run `install_trans()`
-- If no committed header, discard log — disk is already consistent
-
-**Key invariant**: never write a file-system block to its real location until the entire transaction is committed and the log header is on disk.
-
----
-
-layout: section
-
----
-
-# Exercise 3
+- Committed header found → re-run `install_trans()`
+- No committed header → discard log, disk is consistent
 
 ---
 
 # Exercise 3: File Creation Tracing
 
-**Full call chain when `open("newfile", O_CREATE)` is called:**
+**Full call chain for `open("newfile", O_CREATE)`:**
 
+```mermaid
+graph TD
+    SO["sys_open()<br/>kernel/sysfile.c"] --> CR["create()"]
+    CR --> NP["nameiparent()<br/>resolve parent dir"]
+    CR --> DL["dirlookup()<br/>check name doesn't exist"]
+    CR --> IA["ialloc()<br/>allocate new inode"]
+    IA --> LW1["log_write()"]
+    CR --> DK["dirlink()<br/>add entry to parent"]
+    DK --> WI["writei()"]
+    WI --> LW2["log_write()"]
+    CR --> FA["filealloc()<br/>+ fdalloc()"]
+    FA --> RET["Return fd to user"]
+    style SO fill:#e3f2fd
+    style IA fill:#fff3e0
+    style DK fill:#e8f5e9
+    style RET fill:#c8e6c9
 ```
-sys_open()                   ← kernel/sysfile.c
-  └─ create()                ← kernel/sysfile.c
-       ├─ nameiparent()      resolve parent directory inode
-       ├─ dirlookup()        check that name does not already exist
-       ├─ ialloc()           allocate a new inode on disk (type = T_FILE)
-       │    └─ log_write()   log the new inode block
-       ├─ ilock() / iunlock()
-       ├─ dirlink()          add (name, inum) entry to parent directory
-       │    └─ writei()      write directory entry
-       │         └─ log_write()
-       └─ filealloc()        allocate a file descriptor struct
-            └─ fdalloc()     assign fd number in proc->ofile[]
-```
 
-**Task**: Set a breakpoint at `ialloc()` in GDB and verify the inode type and device number are set correctly before `log_write()` is called.
-
----
-
-layout: section
-
----
-
-# Exercise 4
+**Task**: Set a breakpoint at `ialloc()` in GDB and verify the inode type and device number are set correctly before `log_write()`.
 
 ---
 
@@ -171,41 +147,50 @@ layout: section
 
 **xv6 inode block layout** (`struct dinode` in `kernel/fs.h`):
 
-```
-addrs[0..11]   → 12 direct blocks          (12 × 1 KB  =    12 KB)
-addrs[12]      → single indirect block     (256 × 1 KB =   256 KB)
-addrs[13]      → double indirect block     (256² × 1 KB = 64 MB)   ← add this
-addrs[14]      → triple indirect block     (256³ × 1 KB = 16 GB)   ← optional
+```mermaid
+graph TD
+    I["struct dinode"] --> D["addrs[0..11]<br/>12 direct blocks<br/>= 12 KB"]
+    I --> S["addrs[12]<br/>single indirect<br/>256 blocks = 256 KB"]
+    I --> DB["addrs[13]<br/>double indirect<br/>256² = 64 MB"]
+    I --> TR["addrs[14]<br/>triple indirect<br/>256³ = 16 GB"]
+    S --> S1["256 block ptrs"]
+    DB --> DB1["256 indirect ptrs"]
+    DB1 --> DB2["256 block ptrs each"]
+    style D fill:#c8e6c9
+    style S fill:#e3f2fd
+    style DB fill:#fff3e0
+    style TR fill:#fce4ec
 ```
 
-**Block pointer counts** (1 KB block, 4-byte block numbers → 256 pointers/block):
-
-| Level | Formula | Size |
+| Level | Formula | Max Size |
 |---|---|---|
 | Direct | 12 blocks | 12 KB |
 | Single indirect | 256 blocks | 256 KB |
 | Double indirect | 256 × 256 | 64 MB |
-| Triple indirect | 256 × 256 × 256 | 16 GB |
+| Triple indirect | 256³ | 16 GB |
 
-**Task**: Modify `bmap()` in `kernel/fs.c` to support double-indirect blocks. Update `MAXFILE` and `NDIRECT` constants accordingly. Verify with a test that writes more than 268 blocks to a single file.
+**Task**: Modify `bmap()` in `kernel/fs.c` to support **double-indirect** blocks.
 
 ---
 
 # Key Takeaways
 
-**Buffer cache**
-- Single in-memory copy per disk block; LRU eviction; sleep-locks for mutual exclusion
+```mermaid
+graph LR
+    BC["Buffer Cache<br/>LRU + sleep-locks"] --> LOG["Logging<br/>WAL crash safety"]
+    LOG --> FS["File Ops<br/>ialloc + dirlink"]
+    FS --> LF["Large Files<br/>indirect blocks"]
+    style BC fill:#f3e5f5
+    style LOG fill:#fce4ec
+    style FS fill:#e8f5e9
+    style LF fill:#fff3e0
+```
 
-**Logging**
-- Write-ahead log makes multi-block updates crash-safe
-- `commit()` is the point of no return — after `write_head()`, recovery will always re-apply the transaction
+| Concept | Key Insight |
+|---|---|
+| **Buffer cache** | One copy per block; LRU eviction; sleep-locks |
+| **Logging** | `write_head()` = commit point; recovery replays committed txns |
+| **File creation** | Touches inode block + parent dir block — both wrapped in a transaction |
+| **Large files** | Indirect blocks multiply capacity: 256/block → each level adds ×256 |
 
-**File creation**
-- Touches at least two disk structures: the new inode block and the parent directory block
-- Both writes are wrapped in `begin_op()` / `end_op()` so they appear atomic
-
-**Large files**
-- Indirect block levels multiply capacity quadratically/cubically
-- Changing `NDIRECT` affects both `struct dinode` and `struct inode` — update both
-
-> The file system is the most complex subsystem in xv6. Reading it layer by layer, as these exercises do, is the most effective way to build a complete mental model.
+> The file system is the most complex xv6 subsystem. Reading it **layer by layer** is the most effective approach.

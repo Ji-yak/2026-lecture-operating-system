@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 05 — Lab: Thread & Concurrency 2 — Advanced Synchronization"
+title: "Week 05 — Lab: Advanced Synchronization"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -12,198 +12,235 @@ transition: slide-left
 
 ## Week 5 — Advanced Synchronization
 
-<div class="pt-4 text-gray-400">
 Korea University Sejong Campus, Department of Computer Science
-</div>
 
 ---
 
 # Lab Overview
 
-**Topic:** Thread & Concurrency 2 — Advanced Synchronization
+**Duration**: ~50 minutes · 4 exercises
 
-**Duration:** ~50 minutes · 4 exercises
+```mermaid
+graph LR
+    E1["Ex 1<br/>Producer-Consumer"] --> E2["Ex 2<br/>Bounded Buffer"]
+    E2 --> E3["Ex 3<br/>xv6 spinlock.c"]
+    E3 --> E4["Ex 4<br/>xv6 kalloc.c"]
+    style E1 fill:#e3f2fd
+    style E2 fill:#fff3e0
+    style E3 fill:#e8f5e9
+    style E4 fill:#fce4ec
+```
 
-**Objectives**
-
-- Implement the Producer-Consumer pattern with condition variables and a mutex
-- Scale to multiple producers and consumers on a bounded buffer
-- Read and explain every line of `xv6-riscv/kernel/spinlock.c`
-- Analyze lock usage in `xv6-riscv/kernel/kalloc.c` and understand the scalability bottleneck
-
-**Setup**
+**Setup**:
 
 ```bash
 cd examples/
 gcc -Wall -pthread -o producer_consumer  producer_consumer.c
 gcc -Wall -pthread -o bounded_buffer     bounded_buffer.c
-# xv6 source: xv6-riscv/kernel/spinlock.c
-# xv6 source: xv6-riscv/kernel/kalloc.c
 ```
-
----
-layout: section
----
-
-# Exercise 1
-## Producer-Consumer
 
 ---
 
 # Exercise 1: Producer-Consumer
 
-**Goal:** Coordinate producers and consumers with a condition variable + mutex
+**Goal**: Coordinate producer and consumer with **condition variable** + **mutex**
 
-**Core pattern — producer side:**
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 ```c
+// Producer
 pthread_mutex_lock(&buf->mutex);
-
-while (buf->count == BUFFER_SIZE)        // buffer full?
-    pthread_cond_wait(&buf->not_full, &buf->mutex);  // sleep + release lock atomically
-
+while (buf->count == BUFFER_SIZE)
+    pthread_cond_wait(
+        &buf->not_full,
+        &buf->mutex);
 buf->data[buf->in] = item;
 buf->in = (buf->in + 1) % BUFFER_SIZE;
 buf->count++;
-
-pthread_cond_signal(&buf->not_empty);    // wake one waiting consumer
+pthread_cond_signal(&buf->not_empty);
 pthread_mutex_unlock(&buf->mutex);
 ```
 
-**Why `while`, not `if`?**
+</div>
+<div>
 
-POSIX uses **Mesa semantics** — a thread can wake up spuriously or find the condition already consumed by a faster thread. Always recheck the predicate after waking.
-
-**`signal` vs `broadcast`:** `signal` wakes one thread (efficient); `broadcast` wakes all (safer when multiple threads must recheck).
-
----
-layout: section
----
-
-# Exercise 2
-## Bounded Buffer
-
----
-
-# Exercise 2: Multi-Producer/Consumer Bounded Buffer
-
-**Goal:** Verify correctness and explore synchronization dynamics at scale
-
-```bash
-./bounded_buffer   # 3 producers + 3 consumers, BUFFER_SIZE = 4
+```mermaid
+graph TD
+    P["Producer"] -->|"put item"| B["Bounded<br/>Buffer"]
+    B -->|"get item"| C["Consumer"]
+    P -->|"full?"| W1["⏳ wait(not_full)"]
+    C -->|"empty?"| W2["⏳ wait(not_empty)"]
+    W1 -.->|"signal"| C
+    W2 -.->|"signal"| P
+    style B fill:#fff3e0
+    style W1 fill:#ffcdd2
+    style W2 fill:#ffcdd2
 ```
 
-Every item produced must be consumed exactly once — no duplicates, no drops.
+</div>
+</div>
 
-**Experiments to try:**
+**Why `while`, not `if`?** — POSIX uses **Mesa semantics**: spurious wakeups are possible. Always recheck.
 
-| Change | Expected effect |
+---
+
+# Exercise 2: Bounded Buffer at Scale
+
+**3 producers + 3 consumers**, `BUFFER_SIZE = 4`
+
+```bash
+./bounded_buffer   # every item produced is consumed exactly once
+```
+
+**Experiments**:
+
+| Change | Expected Effect |
 |---|---|
 | Replace `while` with `if` | Assertion failures or wrong count |
 | Replace `signal` with `broadcast` | Correct but more spurious wakeups |
 | Set `BUFFER_SIZE = 1` | Strict alternation, low concurrency |
-| Reduce consumers to 1 | Consumer becomes bottleneck, producers wait more |
+| Reduce consumers to 1 | Consumer bottleneck, producers wait more |
 
-**Key observation:** a small buffer relative to thread count causes frequent waiting — visible in the terminal output interleaving.
-
----
-layout: section
----
-
-# Exercise 3
-## xv6 spinlock.c Analysis
+```mermaid
+graph LR
+    P1["Producer 1"] --> B["Buffer<br/>(size 4)"]
+    P2["Producer 2"] --> B
+    P3["Producer 3"] --> B
+    B --> C1["Consumer 1"]
+    B --> C2["Consumer 2"]
+    B --> C3["Consumer 3"]
+    style B fill:#fff3e0
+```
 
 ---
 
 # Exercise 3: xv6 spinlock.c Analysis
 
-**File:** `xv6-riscv/kernel/spinlock.c`
+**File**: `xv6-riscv/kernel/spinlock.c`
+
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 **`acquire` — four steps:**
 
 ```c
 void acquire(struct spinlock *lk) {
-    push_off();                                          // 1. disable interrupts
-    if (holding(lk)) panic("acquire");                  // 2. re-entrancy check
-
-    while (__sync_lock_test_and_set(&lk->locked, 1))   // 3. atomic spin
-        ;
-    __sync_synchronize();                               // 4. full memory barrier
-    lk->cpu = mycpu();
+  push_off();        // 1. disable interrupts
+  if (holding(lk))
+      panic("acquire"); // 2. re-entrancy check
+  while (__sync_lock_test_and_set(
+      &lk->locked, 1)) // 3. atomic spin
+      ;
+  __sync_synchronize(); // 4. memory barrier
+  lk->cpu = mycpu();
 }
 ```
 
-**`release` — order matters:**
+</div>
+<div>
 
-```c
-lk->cpu = 0;
-__sync_synchronize();              // barrier BEFORE releasing lock
-__sync_lock_release(&lk->locked);  // atomic clear
-pop_off();                         // re-enable interrupts
+**`push_off` / `pop_off`** — nestable interrupt disable:
+
+```mermaid
+graph TD
+    A["acquire(lock_A)<br/>push_off: noff=1<br/>interrupts OFF"] --> B["acquire(lock_B)<br/>push_off: noff=2"]
+    B --> C["release(lock_B)<br/>pop_off: noff=1<br/>still OFF"]
+    C --> D["release(lock_A)<br/>pop_off: noff=0<br/>interrupts ON"]
+    style A fill:#ffcdd2
+    style D fill:#c8e6c9
 ```
 
-**`push_off` / `pop_off` — nestable interrupt disable:**
+Prevents self-deadlock: interrupt handler cannot spin on a lock held by the interrupted code.
 
-- `noff` counter — increments per `acquire`, decrements per `release`
-- Interrupts only restored when `noff` reaches 0 **and** were enabled before the first lock
-- Prevents self-deadlock: an interrupt handler cannot spin on a lock held by interrupted code
-
----
-layout: section
----
-
-# Exercise 4
-## xv6 kalloc.c Lock Analysis
+</div>
+</div>
 
 ---
 
 # Exercise 4: xv6 kalloc.c Lock Analysis
 
-**File:** `xv6-riscv/kernel/kalloc.c`
+**File**: `xv6-riscv/kernel/kalloc.c` — one global freelist + one lock
 
-**Data structure:**
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 ```c
 struct {
     struct spinlock lock;
-    struct run *freelist;   // singly-linked list of free pages
-} kmem;                     // one global instance — all CPUs share it
+    struct run *freelist;
+} kmem;  // ALL CPUs share this
 ```
 
-**`kalloc` and `kfree` — minimal critical sections:**
-
 ```c
-// kfree: memset BEFORE acquiring lock (page not yet visible to others)
+// kfree: memset BEFORE lock
 memset(pa, 1, PGSIZE);
 acquire(&kmem.lock);
-r->next = kmem.freelist;  kmem.freelist = r;
+r->next = kmem.freelist;
+kmem.freelist = r;
 release(&kmem.lock);
 
-// kalloc: memset AFTER releasing lock (page already removed from list)
+// kalloc: memset AFTER lock
 acquire(&kmem.lock);
-r = kmem.freelist;  if(r) kmem.freelist = r->next;
+r = kmem.freelist;
+if(r) kmem.freelist = r->next;
 release(&kmem.lock);
 memset((char*)r, 5, PGSIZE);
 ```
 
-**Scalability problem:** one lock for all CPUs — every allocation serializes.
+</div>
+<div>
 
-**Per-CPU optimization (assignment):** give each CPU its own freelist + lock so cores allocate in parallel most of the time, stealing from neighbors only when empty.
+**Scalability problem:**
+
+```mermaid
+graph TD
+    subgraph "Current: Global Lock"
+        CPU0["CPU 0"] --> GL["🔒 kmem.lock"]
+        CPU1["CPU 1"] --> GL
+        CPU2["CPU 2"] --> GL
+        GL --> FL["freelist"]
+    end
+    style GL fill:#ffcdd2
+```
+
+```mermaid
+graph TD
+    subgraph "Homework: Per-CPU"
+        C0["CPU 0"] --> L0["🔒 lock_0"]
+        C1["CPU 1"] --> L1["🔒 lock_1"]
+        C2["CPU 2"] --> L2["🔒 lock_2"]
+        L0 --> F0["freelist_0"]
+        L1 --> F1["freelist_1"]
+        L2 --> F2["freelist_2"]
+    end
+    style L0 fill:#c8e6c9
+    style L1 fill:#c8e6c9
+    style L2 fill:#c8e6c9
+```
+
+</div>
+</div>
 
 ---
 
 # Key Takeaways
 
-**Condition variables** solve producer-consumer coordination:
-- Pattern: `mutex` + `cond_wait` in a `while` loop — always recheck the predicate.
+| Concept | Key Insight |
+|---|---|
+| **Condition variables** | `mutex` + `cond_wait` in a `while` loop — always recheck |
+| **xv6 spinlock** | disable interrupts + atomic spin + memory barrier |
+| **push_off/pop_off** | nestable interrupt disable prevents self-deadlock |
+| **Lock granularity** | global lock = simple but bottleneck; per-CPU = parallel |
 
-**xv6 spinlock** requirements beyond a simple atomic spin:
-- Disable interrupts (`push_off`) to prevent interrupt-handler deadlock.
-- Memory barriers (`__sync_synchronize`) to prevent CPU/compiler reordering.
-- `noff` counter for correct nesting of multiple locks.
+```mermaid
+graph LR
+    CV["Condition<br/>Variables"] --> PC["Producer-<br/>Consumer"]
+    SL["Spinlock"] --> XV["xv6 kernel<br/>locks"]
+    XV --> KA["kalloc.c<br/>global → per-CPU"]
+    style CV fill:#e3f2fd
+    style SL fill:#fff3e0
+    style KA fill:#e8f5e9
+```
 
-**Lock granularity matters:**
-- A single global lock (`kmem.lock`) is simple but creates a bottleneck under contention.
-- Per-CPU data structures with per-CPU locks allow parallel execution.
-
-**Minimize work inside critical sections** — `kalloc.c` deliberately places `memset` outside the lock.
+> **Minimize work inside critical sections** — `kalloc.c` deliberately places `memset` outside the lock.

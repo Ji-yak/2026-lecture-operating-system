@@ -12,23 +12,13 @@ transition: slide-left
 
 ## Week 10 — Deadlocks
 
-<div class="pt-4 text-gray-400">
 Korea University Sejong Campus, Department of Computer Science
-</div>
 
 ---
 
 # Lab Overview
 
-**Topic**: Observing and Resolving Deadlocks — pthread & xv6 kernel
-
-**Objectives**
-- Directly observe a deadlock using `pthread` mutexes and identify the 4 necessary conditions
-- Fix deadlock by enforcing a consistent global lock acquisition order
-- Apply the `trylock` + back-off strategy as an alternative avoidance technique
-- Analyze how the xv6 kernel enforces lock ordering (`wait_lock → p->lock`)
-
-**Exercises**
+**Objectives**: Observe, resolve, and prevent deadlocks in user-space and xv6 kernel
 
 | # | Topic | Time |
 |---|-------|------|
@@ -37,112 +27,130 @@ Korea University Sejong Campus, Department of Computer Science
 | 3 | `trylock` + back-off strategy | 15 min |
 | 4 | xv6 lock ordering analysis | 15 min |
 
----
-layout: section
----
-
-# Exercise 1
-## Observe Deadlock
+```mermaid
+graph LR
+    E1["Ex 1<br/>🔴 Observe"] --> E2["Ex 2<br/>🟢 Lock Ordering"]
+    E2 --> E3["Ex 3<br/>🟡 trylock"]
+    E3 --> E4["Ex 4<br/>🔵 xv6 Analysis"]
+    style E1 fill:#ffcdd2
+    style E2 fill:#c8e6c9
+    style E3 fill:#fff3e0
+    style E4 fill:#bbdefb
+```
 
 ---
 
 # Exercise 1: Observe Deadlock
 
-**Setup**: two threads, two mutexes — classic circular wait
+**Two threads, two mutexes** — classic circular wait
+
+<div class="grid grid-cols-2 gap-4">
+<div>
 
 ```c
-pthread_mutex_t lock_A = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t lock_B = PTHREAD_MUTEX_INITIALIZER;
-
 void *thread1(void *arg) {
-  pthread_mutex_lock(&lock_A);   // acquires A
-  sleep(1);                      // yield to let thread2 acquire B
-  pthread_mutex_lock(&lock_B);   // waits for B — held by thread2
-  // ... critical section ...
-  pthread_mutex_unlock(&lock_B);
-  pthread_mutex_unlock(&lock_A);
-  return NULL;
+  pthread_mutex_lock(&lock_A);
+  sleep(1);
+  pthread_mutex_lock(&lock_B);
+  // ... never reached ...
 }
 
 void *thread2(void *arg) {
-  pthread_mutex_lock(&lock_B);   // acquires B
+  pthread_mutex_lock(&lock_B);
   sleep(1);
-  pthread_mutex_lock(&lock_A);   // waits for A — held by thread1
-  // ... critical section ...
-  pthread_mutex_unlock(&lock_A);
-  pthread_mutex_unlock(&lock_B);
-  return NULL;
+  pthread_mutex_lock(&lock_A);
+  // ... never reached ...
 }
 ```
 
-**Observe**: run `deadlock_demo` — the program hangs indefinitely
+```bash
+./deadlock_demo   # hangs! Ctrl-C to kill
+```
 
-- All 4 Coffman conditions are satisfied: mutual exclusion, hold & wait, no preemption, circular wait
-- Use `Ctrl-C` to kill the process; there is no automatic recovery
+</div>
+<div>
 
----
-layout: section
----
+**Resource Allocation Graph:**
 
-# Exercise 2
-## Lock Ordering Fix
+```mermaid
+graph LR
+    T1["Thread 1"] -->|holds| LA["Lock A"]
+    T1 -->|wants| LB["Lock B"]
+    T2["Thread 2"] -->|holds| LB
+    T2 -->|wants| LA
+    style T1 fill:#ffcdd2
+    style T2 fill:#ffcdd2
+    style LA fill:#fff3e0
+    style LB fill:#fff3e0
+```
+
+**Cycle detected** → Deadlock!
+
+All 4 Coffman conditions hold:
+1. Mutual exclusion
+2. Hold and wait
+3. No preemption
+4. **Circular wait** ←
+
+</div>
+</div>
 
 ---
 
 # Exercise 2: Lock Ordering Fix
 
-**Principle**: establish a **global total order** on all locks; always acquire in that order
+**Principle**: establish a **global total order** — always acquire in the same order
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+**Before (deadlock):**
+
+```mermaid
+graph TD
+    T1["Thread 1: A → B"] --> DL["💀 Deadlock"]
+    T2["Thread 2: B → A"] --> DL
+    style DL fill:#ffcdd2
+```
+
+</div>
+<div>
+
+**After (safe):**
+
+```mermaid
+graph TD
+    T1["Thread 1: A → B"] --> OK["✅ Safe"]
+    T2["Thread 2: A → B"] --> OK
+    style OK fill:#c8e6c9
+```
+
+</div>
+</div>
 
 ```c
-// Bad — inconsistent order causes circular wait
-// Thread 1: lock(A) → lock(B)
-// Thread 2: lock(B) → lock(A)
-
-// Good — consistent order eliminates circular wait
-// Both threads: lock(A) → lock(B)
-
-void *thread1_fixed(void *arg) {
-  pthread_mutex_lock(&lock_A);   // always A first
-  pthread_mutex_lock(&lock_B);   // then B
-  // ... critical section ...
-  pthread_mutex_unlock(&lock_B);
-  pthread_mutex_unlock(&lock_A);
-  return NULL;
-}
-
-void *thread2_fixed(void *arg) {
-  pthread_mutex_lock(&lock_A);   // same order: A first
-  pthread_mutex_lock(&lock_B);
-  // ... critical section ...
-  pthread_mutex_unlock(&lock_B);
-  pthread_mutex_unlock(&lock_A);
-  return NULL;
+// Both threads acquire in the SAME order
+void *thread_fixed(void *arg) {
+    pthread_mutex_lock(&lock_A);   // always A first
+    pthread_mutex_lock(&lock_B);   // then B
+    // ... critical section ...
+    pthread_mutex_unlock(&lock_B);
+    pthread_mutex_unlock(&lock_A);
 }
 ```
 
-**Why it works**
-- Circular wait is impossible: to hold lock B, a thread must already hold lock A
-- No thread can be waiting for a lock held by a thread that is waiting for it
-- Release order does not matter — only acquisition order must be consistent
-
----
-layout: section
----
-
-# Exercise 3
-## trylock Strategy
+**Why it works**: circular wait is impossible — to hold B, you must already hold A.
 
 ---
 
 # Exercise 3: trylock Strategy
 
-**`pthread_mutex_trylock`** — non-blocking attempt; returns `EBUSY` if lock is unavailable
+**`pthread_mutex_trylock`** — non-blocking; returns `EBUSY` if unavailable
 
 ```c
 void *thread_trylock(void *arg) {
   while (1) {
     pthread_mutex_lock(&lock_A);
-
     if (pthread_mutex_trylock(&lock_B) == 0) {
       // Success — hold both locks
       // ... critical section ...
@@ -150,86 +158,72 @@ void *thread_trylock(void *arg) {
       pthread_mutex_unlock(&lock_A);
       break;
     }
-
-    // Failed to acquire B — release A and back off
+    // Failed — release A and back off
     pthread_mutex_unlock(&lock_A);
-
-    // Back-off: sleep a random short interval before retrying
-    usleep(rand() % 1000);
+    usleep(rand() % 1000);   // randomized delay
   }
-  return NULL;
 }
 ```
 
-**Key points**
-- Back-off prevents **livelock**: without it, both threads could retry in lockstep forever
-- Randomized delay ensures the threads desynchronize and one succeeds
-- Trade-off: livelock risk if back-off is not carefully tuned; lock ordering is generally preferred
-- `trylock` is useful when lock ordering is impractical (e.g., locks in different subsystems)
+```mermaid
+graph TD
+    A["Lock A"] -->|"trylock B?"| D{Success?}
+    D -->|Yes| CS["Critical Section ✅"]
+    D -->|No| R["Release A<br/>Random backoff"]
+    R --> A
+    style CS fill:#c8e6c9
+    style R fill:#fff3e0
+```
 
----
-layout: section
----
-
-# Exercise 4
-## xv6 Lock Ordering Analysis
+**Key**: randomized back-off prevents **livelock** (both retrying in lockstep).
 
 ---
 
 # Exercise 4: xv6 Lock Ordering
 
-**xv6 enforces a strict global lock hierarchy to prevent deadlock in the kernel**
+**xv6 enforces a strict global lock hierarchy:**
 
-**Example: `wait()` → `exit()` interaction**
-
-```c
-// kernel/proc.c — wait()
-acquire(&wait_lock);          // (1) outer lock first
-for (p = proc; ...; p++) {
-  acquire(&p->lock);          // (2) per-process lock second
-  if (p->state == ZOMBIE) { ... }
-  release(&p->lock);
-}
-release(&wait_lock);
-
-// kernel/proc.c — exit()
-acquire(&wait_lock);          // same outer lock first
-acquire(&p->lock);            // same per-process lock second
-p->state = ZOMBIE;
-wakeup(p->parent);
-release(&p->lock);
-release(&wait_lock);
+```mermaid
+graph TD
+    WL["wait_lock<br/>(global)"] --> PL["p->lock<br/>(per-process)"]
+    PL --> TL["tickslock<br/>(timer)"]
+    style WL fill:#bbdefb
+    style PL fill:#e3f2fd
+    style TL fill:#e8f5e9
 ```
 
-**xv6 lock ordering rules (from the xv6 book)**
+**Example: `wait()` and `exit()` both follow the same order:**
 
-| Order | Lock pair | Reason |
-|-------|-----------|--------|
-| 1st | `wait_lock` | protects the parent-child relationship |
-| 2nd | `p->lock` | protects individual process state |
-| 1st | `tickslock` | timer interrupt lock — must not hold `p->lock` when acquiring |
+```c
+// wait()                          // exit()
+acquire(&wait_lock);    // 1st     acquire(&wait_lock);    // 1st
+  acquire(&p->lock);    // 2nd       acquire(&p->lock);    // 2nd
+  if (p->state == ZOMBIE)              p->state = ZOMBIE;
+  release(&p->lock);                   wakeup(p->parent);
+release(&wait_lock);                 release(&p->lock);
+                                   release(&wait_lock);
+```
 
-- Violating this order (e.g., holding `p->lock` then trying `wait_lock`) would create circular wait
-- `acquire()` in xv6 checks for re-entrant locking and panics on violation
+- Violating order (holding `p->lock` then acquiring `wait_lock`) → circular wait
+- `acquire()` in xv6 **panics** on double-acquire (catches mistakes early)
 
 ---
 
 # Key Takeaways
 
-**Deadlock conditions (Coffman)**
-- Mutual exclusion, Hold & wait, No preemption, Circular wait
-- Breaking **any one** condition prevents deadlock
+```mermaid
+graph TD
+    DL["🔴 Deadlock<br/>4 Coffman conditions"] -->|"break circular wait"| LO["🟢 Lock Ordering<br/>global total order"]
+    DL -->|"detect & retreat"| TL["🟡 trylock + backoff"]
+    LO --> XV["🔵 xv6 kernel<br/>wait_lock → p->lock"]
+    style DL fill:#ffcdd2
+    style LO fill:#c8e6c9
+    style TL fill:#fff3e0
+    style XV fill:#bbdefb
+```
 
-**Prevention — lock ordering**
-- Define a global total order; always acquire locks in that order
-- Eliminates circular wait by construction
-- Used pervasively in the xv6 kernel (`wait_lock → p->lock`)
-
-**Avoidance — trylock + back-off**
-- Non-blocking `trylock` allows a thread to detect contention and retreat
-- Randomized back-off breaks livelock symmetry
-- Suitable when a strict global order cannot be enforced
-
-**xv6 discipline**
-- Every kernel code path acquires locks in a documented, consistent order
-- `acquire()` panics on double-acquire of the same lock (detects mistakes early)
+| Strategy | When to Use |
+|---|---|
+| **Lock ordering** | Default choice — simple, provably correct |
+| **trylock + backoff** | When strict ordering is impractical |
+| **xv6 discipline** | Every kernel path follows documented lock hierarchy |

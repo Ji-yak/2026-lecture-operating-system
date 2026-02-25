@@ -12,172 +12,178 @@ transition: slide-left
 
 ## Week 12 — COW Fork & Lazy Allocation
 
----
-
-layout: section
+Korea University Sejong Campus, Department of Computer Science
 
 ---
 
 # Lab Overview
 
----
+- **Goal**: Understand page fault handling and design virtual memory optimizations
+- **Duration**: ~60 minutes · 3 exercises
+- **Key insight**: Page faults are **not errors** — they are opportunities to defer and share work
 
-# Lab Overview
-
-- **Goal**: Understand page fault handling and implement virtual memory optimizations
-- **Duration**: ~60 minutes
-- **3 Exercises**:
-  1. Page fault handling flow — trace `usertrap()` and `vmfault()`
-  2. Copy-On-Write (COW) fork — share pages read-only, copy on write
-  3. Lazy allocation — defer physical memory allocation until first access
-- **Key insight**: Page faults are not errors — they are opportunities to defer and share work
-
----
-
-layout: section
-
----
-
-# Exercise 1
+```mermaid
+graph LR
+    E1["Ex 1<br/>Page Fault<br/>Handling"] --> E2["Ex 2<br/>COW Fork"]
+    E2 --> E3["Ex 3<br/>Lazy<br/>Allocation"]
+    style E1 fill:#e3f2fd
+    style E2 fill:#fff3e0
+    style E3 fill:#e8f5e9
+```
 
 ---
 
 # Exercise 1: Page Fault Handling
 
-**Flow when a user process accesses an unmapped page:**
+**Flow when a user process accesses an unmapped/protected page:**
 
+```mermaid
+graph TD
+    TRAP["usertrap()<br/>kernel/trap.c"] --> SC{"r_scause()"}
+    SC -->|"13"| LF["Load page fault<br/>(read to unmapped addr)"]
+    SC -->|"15"| SF["Store page fault<br/>(write to RO or unmapped)"]
+    LF --> VMF["vmfault()"]
+    SF --> VMF
+    VMF --> D{"What kind?"}
+    D -->|"PTE_COW set"| COW["COW: copy page,<br/>remap writable"]
+    D -->|"addr < p->sz,<br/>no PTE"| LAZY["Lazy: allocate<br/>page on demand"]
+    D -->|"invalid"| KILL["Kill process"]
+    style TRAP fill:#e3f2fd
+    style COW fill:#fff3e0
+    style LAZY fill:#e8f5e9
+    style KILL fill:#ffcdd2
 ```
-usertrap()           ← trap entry (kernel/trap.c)
-  └─ r_scause()      ← read RISC-V scause register
-       13 = load page fault
-       15 = store page fault
-  └─ vmfault()       ← your handler (kernel/vm.c)
-       └─ walk PTE
-       └─ decide: COW? lazy? invalid?
-       └─ allocate / remap as needed
-```
 
-- `scause == 13`: load fault (read to unmapped address)
-- `scause == 15`: store fault (write to read-only or unmapped address)
-- `r_stval()` returns the faulting virtual address
-
-**Task**: Read `usertrap()` and identify where page faults are dispatched.
-
----
-
-layout: section
-
----
-
-# Exercise 2
+- `r_stval()` returns the **faulting virtual address**
+- **Task**: Read `usertrap()` and identify where page faults are dispatched
 
 ---
 
 # Exercise 2: COW Fork — Concept
 
-**Problem with naive `fork()`**: copies all physical pages immediately — slow and wasteful.
+**Problem**: Naive `fork()` copies ALL physical pages immediately — slow and wasteful
 
-**COW idea**: share parent's pages read-only; copy only when a write occurs.
-
+```mermaid
+graph LR
+    subgraph "Naive fork()"
+        P1["Parent<br/>pages A,B,C"] -->|"copy all"| C1["Child<br/>pages A',B',C'"]
+    end
+    subgraph "COW fork()"
+        P2["Parent<br/>pages A,B,C<br/>(read-only)"] -->|"share!"| C2["Child<br/>same A,B,C<br/>(read-only)"]
+        C2 -->|"write to B"| FAULT["page fault"]
+        FAULT --> COPY["copy only B → B'"]
+    end
+    style C1 fill:#ffcdd2
+    style C2 fill:#c8e6c9
+    style COPY fill:#fff3e0
 ```
-fork()
-  ├─ map child pages → same physical frames as parent
-  ├─ mark both parent & child PTEs as read-only
-  └─ set PTE_COW bit (RSW field) on both sides
 
-write access by child
-  └─ store page fault (scause = 15)
-  └─ vmfault() detects PTE_COW
-  └─ allocate new physical page
-  └─ copy contents → remap child PTE writable
-  └─ decrement refcount on old page
-```
-
-- Most `fork()` children call `exec()` immediately — no copy ever needed
-- COW makes `fork()` nearly free in the common case
+**Why it works**: Most `fork()` children call `exec()` immediately → pages are **never** written → **zero copies** needed!
 
 ---
 
 # Exercise 2: COW Fork — Implementation
 
-**Step 1 — Mark PTEs during `uvmcopy()`**
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+**Step 1 — `uvmcopy()`: mark PTEs**
 
 ```c
-// For each PTE in parent's address space:
-pte = walk(pagetable, va, 0);
-*pte &= ~PTE_W;          // clear writable
-*pte |= PTE_COW;         // set COW flag (RSW bit, e.g. bit 8)
+*pte &= ~PTE_W;   // clear writable
+*pte |= PTE_COW;  // set COW flag
+// (RSW bit 8 in PTE)
 // child PTE gets same flags
 ```
 
 **Step 2 — Reference counting**
 
 ```c
-int refcount[PHYSTOP / PGSIZE];   // one entry per physical page
-// increment on fork, decrement on free
-// only kfree() when refcount drops to 0
+int refcount[PHYSTOP / PGSIZE];
+// increment on fork
+// decrement on free
+// kfree() only when count → 0
 ```
 
-**Step 3 — Fault handler in `vmfault()`**
+</div>
+<div>
+
+**Step 3 — Fault handler**
+
+```mermaid
+graph TD
+    F["Store page fault<br/>scause = 15"] --> C{"PTE_COW?"}
+    C -->|Yes| A["kalloc() new page"]
+    A --> CP["memmove() copy content"]
+    CP --> RM["Remap PTE:<br/>writable, clear COW"]
+    RM --> DEC["decref(old_pa)"]
+    C -->|No| K["Kill process"]
+    style F fill:#fce4ec
+    style A fill:#fff3e0
+    style RM fill:#c8e6c9
+    style K fill:#ffcdd2
+```
 
 ```c
 if (*pte & PTE_COW) {
-    char *mem = kalloc();
-    memmove(mem, (char*)PA2KV(PTE2PA(*pte)), PGSIZE);
-    *pte = PA2PTE((uint64)mem) | flags | PTE_W;
-    *pte &= ~PTE_COW;
-    decref(old_pa);
+  char *mem = kalloc();
+  memmove(mem, old_pa, PGSIZE);
+  *pte = PA2PTE(mem) | PTE_W;
+  *pte &= ~PTE_COW;
+  decref(old_pa);
 }
 ```
 
----
-
-layout: section
-
----
-
-# Exercise 3
+</div>
+</div>
 
 ---
 
 # Exercise 3: Lazy Allocation
 
-**Problem**: `sbrk(n)` immediately allocates `n` bytes of physical memory even if the process never uses it.
+**Problem**: `sbrk(n)` allocates `n` bytes of physical memory even if the process never uses it
 
-**Lazy allocation idea**: just grow `p->sz` in `sbrk()` — do not allocate physical pages yet.
-
-```
-sbrk(n)
-  └─ p->sz += n          ← record new size, return old sz
-  └─ NO physical alloc
-
-first access to new page
-  └─ load/store page fault
-  └─ vmfault() checks: va < p->sz && va >= p->oldsz?
-       └─ yes → kalloc() + mappages()
-       └─ no  → kill process (invalid access)
+```mermaid
+graph TD
+    subgraph "Eager (current xv6)"
+        SB1["sbrk(n)"] --> AL["Allocate n bytes<br/>of physical pages"]
+        AL --> MAP["Map all pages<br/>in page table"]
+    end
+    subgraph "Lazy (optimization)"
+        SB2["sbrk(n)"] --> SZ["Just update p->sz += n<br/>NO physical alloc"]
+        SZ --> ACC["First access"]
+        ACC --> PF["Page fault"]
+        PF --> ALP["kalloc() + mappages()<br/>allocate ONE page"]
+    end
+    style AL fill:#ffcdd2
+    style SZ fill:#c8e6c9
+    style ALP fill:#fff3e0
 ```
 
 **Edge cases to handle**:
 - `sbrk(-n)`: must `uvmdealloc()` existing pages
-- Stack growth below guard page must still fault fatally
-- `read()`/`write()` syscalls that pass lazy pages to the kernel (`walkaddr()` must trigger allocation)
+- Stack guard page: must still fault fatally
+- Syscall I/O: `walkaddr()` must trigger allocation for lazy pages passed to `read()`/`write()`
 
 ---
 
 # Key Takeaways
 
-**Page faults as a mechanism**
-- `usertrap()` dispatches on `scause`; `vmfault()` is where the real work happens
-- The faulting VA is always available via `r_stval()`
+```mermaid
+graph TD
+    PF["Page Fault<br/>(scause 13/15)"] -->|"mechanism"| UT["usertrap() → vmfault()"]
+    UT --> COW["COW Fork<br/>share pages RO,<br/>copy on write"]
+    UT --> LAZY["Lazy Alloc<br/>grow p->sz only,<br/>alloc on fault"]
+    COW --> REF["Reference counting<br/>prevents premature kfree"]
+    style PF fill:#e3f2fd
+    style COW fill:#fff3e0
+    style LAZY fill:#e8f5e9
+```
 
-**COW Fork**
-- Mark pages read-only + `PTE_COW` (RSW bit) at `fork()` time
-- Fault on first write: allocate, copy, remap writable
-- Reference counting prevents premature `kfree()`
-
-**Lazy Allocation**
-- `sbrk()` updates `p->sz` only; physical pages allocated on demand
-- Reduces startup cost for programs that over-allocate heap space
-
-**Common pitfall**: forgetting to handle kernel access to lazy pages — `walkaddr()` must check and allocate before passing addresses to device drivers or syscall I/O paths.
+| Concept | Key Insight |
+|---|---|
+| **Page faults** | Not errors — opportunities to defer work |
+| **COW fork** | Share pages RO + PTE_COW; copy only on write |
+| **Refcount** | Track sharing; `kfree` only when count reaches 0 |
+| **Lazy alloc** | `sbrk` updates `p->sz` only; physical pages on demand |
+| **Pitfall** | Kernel must handle lazy pages in `walkaddr()` for syscall I/O |

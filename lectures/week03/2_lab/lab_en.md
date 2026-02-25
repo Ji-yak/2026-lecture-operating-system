@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 03 — Lab: Process 2 — Exploring xv6 Internals"
+title: "Week 03 — Lab: Exploring xv6 Internals"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -12,205 +12,172 @@ transition: slide-left
 
 ## Week 3 — Exploring xv6 Internals
 
----
-
-layout: section
+Korea University Sejong Campus, Department of Computer Science
 
 ---
 
 # Lab Overview
 
----
+- **Goal**: Navigate xv6 kernel source and trace how system calls work end-to-end
+- **Duration**: ~50 minutes · 5 labs (Lab 0–4)
 
-# Lab Overview
-
-- **Goal**: Navigate the xv6 kernel source and trace how process-related system calls work end-to-end
-- **Duration**: ~50 minutes
-- **Exercises**: 5 labs (Lab 0 through Lab 4)
-- **Topics covered**:
-  - xv6 build environment and QEMU
-  - Kernel source directory layout
-  - System call path from user space to kernel
-  - `struct proc` — the process descriptor
-  - `fork()` implementation line by line
-
----
-
-layout: section
-
----
-
-# Labs 0 & 1
-
----
-
-# Lab 0 & 1: Environment Check & Source Structure
-
-**Lab 0 — Verify your build**
-```bash
-cd xv6-riscv
-make qemu         # should boot xv6 in QEMU
-# Expected: "xv6 kernel is booting" followed by a shell prompt ($)
-# Exit with: Ctrl-A X
+```mermaid
+graph LR
+    L0["Lab 0<br/>Environment"] --> L1["Lab 1<br/>Source Structure"]
+    L1 --> L2["Lab 2<br/>Syscall Tracing"]
+    L2 --> L3["Lab 3<br/>struct proc"]
+    L3 --> L4["Lab 4<br/>fork() Deep Dive"]
+    style L0 fill:#e3f2fd
+    style L2 fill:#fff3e0
+    style L4 fill:#e8f5e9
 ```
 
-**Lab 1 — Key files in `kernel/`**
+---
+
+# Lab 0 & 1: Environment & Source Structure
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+### Lab 0 — Verify Build
+
+```bash
+cd xv6-riscv
+make qemu
+# → "xv6 kernel is booting"
+# → shell prompt ($)
+# Exit: Ctrl-A X
+```
+
+</div>
+<div>
+
+### Lab 1 — Key Kernel Files
 
 | File | Purpose |
 |---|---|
 | `proc.h` | `struct proc` definition |
-| `proc.c` | process management (fork, exit, wait, scheduler) |
-| `syscall.c` | dispatch table — maps syscall numbers to handlers |
-| `sysproc.c` | syscall handler implementations (sys_fork, sys_exit, …) |
-| `trap.c` | trap/interrupt entry point from user space |
-| `usys.pl` | generates `usys.S` — user-space syscall stubs |
+| `proc.c` | fork, exit, wait, scheduler |
+| `syscall.c` | syscall dispatch table |
+| `sysproc.c` | syscall handlers |
+| `trap.c` | trap entry from user space |
+| `usys.pl` | generates user-space stubs |
 
-- Spend a few minutes reading each file's top-level comments
-
----
-
-layout: section
-
----
-
-# Lab 2
+</div>
+</div>
 
 ---
 
 # Lab 2: System Call Tracing
 
-**Full path of a `fork()` call from user space to kernel**
+**Full path of `fork()` from user space to kernel:**
 
-```
-User program calls fork()
-        │
-        ▼
-usys.S  — li a7, SYS_fork  (load syscall number into register a7)
-           ecall            (trap into supervisor mode)
-        │
-        ▼
-trap.c  — usertrap()        (handles all traps from user space)
-           calls syscall()
-        │
-        ▼
-syscall.c — syscall()       (reads a7, looks up dispatch table)
-             calls sys_fork()
-        │
-        ▼
-sysproc.c — sys_fork()      (thin wrapper, calls fork())
-        │
-        ▼
-proc.c  — fork()            (does the actual work)
+```mermaid
+graph TD
+    U["User program<br/>calls fork()"] --> US["usys.S<br/>li a7, SYS_fork<br/>ecall"]
+    US --> TR["trap.c — usertrap()<br/>handles all user traps"]
+    TR --> SC["syscall.c — syscall()<br/>reads a7, dispatch table lookup"]
+    SC --> SP["sysproc.c — sys_fork()<br/>thin wrapper"]
+    SP --> PC["proc.c — fork()<br/>does the actual work"]
+    style U fill:#e3f2fd
+    style US fill:#fff3e0
+    style TR fill:#fce4ec
+    style SC fill:#f3e5f5
+    style SP fill:#e8f5e9
+    style PC fill:#c8e6c9
 ```
 
-- Trace this path by opening each file and finding the relevant function
-- Add a `printf` in `sys_fork()` and rebuild to confirm you found the right spot
-
----
-
-layout: section
-
----
-
-# Lab 3
+**Exercise**: Add a `printf` in `sys_fork()` and rebuild to confirm you found the right spot.
 
 ---
 
 # Lab 3: struct proc Analysis
 
-**Defined in `kernel/proc.h`**
+**Process state machine** — defined in `kernel/proc.h`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> UNUSED
+    UNUSED --> USED : allocproc()
+    USED --> RUNNABLE : fork() / userinit()
+    RUNNABLE --> RUNNING : scheduler picks it
+    RUNNING --> RUNNABLE : yield() / timer interrupt
+    RUNNING --> SLEEPING : sleep()
+    SLEEPING --> RUNNABLE : wakeup()
+    RUNNING --> ZOMBIE : exit()
+    ZOMBIE --> UNUSED : wait() reaps
+```
+
+**Key fields**: `state`, `pid`, `pagetable`, `trapframe`, `context`, `ofile[]`, `parent`
+
+- **Exercise**: Which fields change at each state transition?
+
+---
+
+# Lab 3: struct proc — Full Definition
 
 ```c
 struct proc {
   struct spinlock lock;
+  enum procstate state;        // UNUSED → USED → RUNNABLE → RUNNING → ZOMBIE
+  void *chan;                  // sleep channel (if SLEEPING)
+  int killed;                 // pending kill signal
+  int xstate;                 // exit status for parent
+  int pid;                    // process ID
 
-  // p->lock must be held when using these:
-  enum procstate state;   // UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE
-  void *chan;             // If non-zero, sleeping on chan
-  int killed;             // If non-zero, have been killed
-  int xstate;             // Exit status to be returned to parent's wait
-  int pid;                // Process ID
+  struct proc *parent;        // parent process (protected by wait_lock)
 
-  // wait_lock must be held when using this:
-  struct proc *parent;    // Parent process
-
-  // private to the process, so p->lock need not be held:
-  uint64 kstack;          // Virtual address of kernel stack
-  uint64 sz;              // Size of process memory (bytes)
-  pagetable_t pagetable;  // User page table
-  struct trapframe *trapframe; // data for trampoline.S
-  struct context context; // swtch() here to run process
-  struct file *ofile[NOFILE]; // Open files
-  struct inode *cwd;      // Current directory
-  char name[16];          // Process name (debugging)
+  uint64 kstack;              // kernel stack virtual address
+  uint64 sz;                  // process memory size (bytes)
+  pagetable_t pagetable;      // user page table
+  struct trapframe *trapframe;// saved user registers (for trampoline.S)
+  struct context context;     // saved kernel registers (for swtch.S)
+  struct file *ofile[NOFILE]; // open file descriptors
+  struct inode *cwd;          // current working directory
+  char name[16];              // process name (for debugging)
 };
 ```
-
-- Identify which fields change at each lifecycle transition: UNUSED → RUNNABLE → RUNNING → ZOMBIE
-
----
-
-layout: section
-
----
-
-# Lab 4
 
 ---
 
 # Lab 4: fork() Implementation Deep Dive
 
-**`fork()` in `kernel/proc.c` — step by step**
-
-```c
-int fork(void) {
-  // 1. Allocate a new process slot (allocproc)
-  //    Sets state = USED, allocates pid, kstack, trapframe, context
-
-  // 2. Copy the parent's user memory into the child
-  uvmcopy(p->pagetable, np->pagetable, p->sz);
-  np->sz = p->sz;
-
-  // 3. Copy the trapframe so the child returns from fork() too
-  *(np->trapframe) = *(p->trapframe);
-
-  // 4. Make fork() return 0 in the child
-  np->trapframe->a0 = 0;
-
-  // 5. Copy open file descriptors
-  for (int i = 0; i < NOFILE; i++)
-    if (p->ofile[i])
-      np->ofile[i] = filedup(p->ofile[i]);
-
-  // 6. Set parent pointer and mark RUNNABLE
-  np->parent = p;
-  np->state = RUNNABLE;
-
-  return np->pid;  // returns child PID to parent
-}
+```mermaid
+graph TD
+    A["1. allocproc()<br/>get new proc slot, pid, kstack, trapframe"] --> B["2. uvmcopy()<br/>copy parent's page table + memory"]
+    B --> C["3. Copy trapframe<br/>child returns from fork() too"]
+    C --> D["4. Set a0 = 0<br/>child sees fork() return 0"]
+    D --> E["5. Copy ofile[]<br/>share open file descriptors"]
+    E --> F["6. Set parent, state = RUNNABLE<br/>child is ready to run"]
+    F --> G["7. Return child PID to parent"]
+    style A fill:#e3f2fd
+    style D fill:#fff3e0
+    style F fill:#e8f5e9
 ```
 
-- Why does the child need its own trapframe copy?
-- What would happen if step 4 were skipped?
+**Discussion questions**:
+- Why does the child need its **own** trapframe copy?
+- What would happen if step 4 (`a0 = 0`) were skipped?
+- Why does `uvmcopy` copy **all** pages? (Hint: Week 12 — COW fork)
 
 ---
 
 # Key Takeaways
 
-**xv6 as a learning OS**
-- Small enough to read entirely (~10 k lines of C)
-- Every concept from lecture has a direct, readable implementation
+| Concept | Key Insight |
+|---|---|
+| **xv6** | ~10K lines of C — small enough to read entirely |
+| **Syscall path** | user → `ecall` → `usertrap()` → `syscall()` → handler → impl |
+| **struct proc** | Kernel's complete view of a process (scheduling, memory, files) |
+| **fork()** | `uvmcopy` = heavy lifting; `trapframe->a0 = 0` = child return value |
 
-**System call path**
-- User code → `ecall` → `usertrap()` → `syscall()` → handler → implementation
-- Understanding this path helps debug kernel issues at any layer
-
-**`struct proc` is the kernel's view of a process**
-- All scheduling, memory, and file state hangs off this structure
-- Lifecycle: UNUSED → USED → RUNNABLE → RUNNING → ZOMBIE → UNUSED
-
-**fork() key insight**
-- `uvmcopy` does the heavy lifting — full page-table duplication
-- Setting `trapframe->a0 = 0` is the entire reason the child sees return value 0
+```mermaid
+graph LR
+    subgraph "What you explored today"
+        SRC["Source<br/>Structure"] --> PATH["Syscall<br/>Path"]
+        PATH --> PROC["struct proc<br/>Lifecycle"]
+        PROC --> FORK["fork()<br/>Implementation"]
+    end
+```
 
 > Upcoming: threads, scheduling, and synchronization — all built on top of what you explored today.
