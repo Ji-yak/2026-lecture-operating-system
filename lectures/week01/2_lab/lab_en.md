@@ -118,8 +118,8 @@ Review — did the agent make sensible decisions?
 
 # Task 3 & 4: Repo Docs & RALPH
 
-<div class="grid grid-cols-2 gap-6">
-<div>
+<div class="grid grid-cols-3 gap-6">
+<div class="col-span-2">
 
 ### Task 3 — GitHub Repo Documentation
 
@@ -127,26 +127,21 @@ Review — did the agent make sensible decisions?
 - Ask the agent to generate a `README.md`
 - Check: does it accurately describe the project?
 
-</div>
-<div>
-
-### Task 4 — RALPH Technique <img src="./images/ralph_wiggum.png" class="inline w-16 ml-2 align-middle" />
+### Task 4 — RALPH Technique
 
 **R**equest → **A**nalyze → **L**ist issues → **P**rompt again → **H**armonize
 
-```mermaid
-graph LR
-    R["1️⃣ Request"] --> A["2️⃣ Analyze"]
-    A --> L["3️⃣ List issues"]
-    L --> P["4️⃣ Prompt again"]
-    P --> H["5️⃣ Harmonize"]
-    H -->|No| R
-    H -->|Yes| Done["✅ Done"]
-    style Done fill:#c8e6c9
-```
+1. Make an initial request to the agent
+2. Critically review the output
+3. List specific problems or gaps
+4. Re-prompt with targeted corrections
+5. Repeat until satisfactory
 
 Practice this loop on the README from Task 3.
 
+</div>
+<div class="flex items-center justify-center">
+<img src="./images/ralph_wiggum.png" class="w-full" />
 </div>
 </div>
 
