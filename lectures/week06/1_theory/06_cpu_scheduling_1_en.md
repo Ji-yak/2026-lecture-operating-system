@@ -70,18 +70,8 @@ Process execution consists of a repeating cycle of **CPU bursts** and **I/O burs
 
 </div>
 
-```text
-┌─────────────────────────────────────────────────────┐
-│  load store   │              │  store increment │    │
-│  add store    │  wait for    │  index           │    │
-│  read from    │  I/O         │  write to file   │    │
-│  file         │              │                  │    │
-├───────────────┼──────────────┼──────────────────┼────┤
-│  CPU burst    │  I/O burst   │  CPU burst       │    │
-│               │              │                  │    │
-│  ──────►      │  ──────►     │  ──────►         │ ...│
-└─────────────────────────────────────────────────────┘
-```
+<img src="./images/figures/p002_fig5_1.png" class="h-64 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.1 — Alternating sequence of CPU and I/O bursts</p>
 
 <div class="text-left text-base leading-8">
 
@@ -131,22 +121,8 @@ The distribution of CPU burst lengths follows an **exponential or hyperexponenti
 
 </div>
 
-```text
-frequency
-  │
-  │██
-  │████
-  │██████
-  │████████
-  │██████████
-  │████████████
-  │██████████████
-  │████████████████
-  │██████████████████
-  │████████████████████████
-  └──────────────────────────────── burst duration (ms)
-    short               long
-```
+<img src="./images/figures/p003_fig5_2.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.2 — Histogram of CPU-burst durations</p>
 
 <div class="text-left text-base leading-8">
 
@@ -1155,18 +1131,8 @@ When q = 100 (all bursts < 100):
 
 </div>
 
-```text
-1 process, burst = 10:
-
-q = 12:  [    P1(10)    ]               context switches: 0
-         0              10
-
-q = 6:   [  P1  ][  P1  ]               context switches: 1
-         0      6      10+1
-
-q = 1:   [P][P][P][P][P][P][P][P][P][P] context switches: 9
-         0  1  2  3  4  5  6  7  8  9  10+9
-```
+<img src="./images/figures/p013_fig5_5.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.5 — How a smaller time quantum increases context switches</p>
 
 <div class="text-left text-base leading-8">
 
@@ -1186,10 +1152,8 @@ Effect of q on turnaround time (3 processes, each burst = 10)
 
 </div>
 
-```text
-q = 1:  P1,P2,P3,P1,P2,P3,...  → average turnaround = 29
-q = 10: P1,P2,P3              → average turnaround = 20
-```
+<img src="./images/figures/p014_fig5_6.png" class="h-52 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.6 — How turnaround time varies with the time quantum</p>
 
 <div class="text-left text-base leading-8">
 

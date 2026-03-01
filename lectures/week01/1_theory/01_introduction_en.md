@@ -15,6 +15,8 @@ Week 1 — Introduction
 Korea University Sejong Campus, Department of Computer Science & Software
 
 ---
+layout: center
+---
 
 # Part 1. OT
 
@@ -91,7 +93,9 @@ Course Orientation
   - Claude Code, Codex, Gemini CLI, OpenCode, etc.
 - You must:
   - **Design and develop** an OS prototype
-  - Write **OS spec documentation**
+    - e.g., Upgrade the existing xv6 with new features
+    - e.g., Design an LLM-powered OS concept
+  - Write **OS spec documentation** and a **project report**
   - Give a **presentation** (in-class, Week 14)
 - Evaluation:
   - Professor: **15%**
@@ -103,13 +107,15 @@ Course Orientation
 
 | Hour | Content |
 |------|---------|
-| **1st** | Theory Lecture (Part 1) |
-| **2nd** | Theory Lecture (Part 2) + Quiz |
+| **1st** | Theory Lecture (Part 1) + Quiz |
+| **2nd** | Theory Lecture (Part 2) |
 | **3rd** | Hands-on Lab |
 
 - Textbook: Silberschatz, **Operating System Concepts** 10th Edition
 - Lab reference: **xv6** (RISC-V), MIT 6.1810
 
+---
+layout: center
 ---
 
 # Part 2. What is an Operating System?
@@ -132,7 +138,7 @@ A Big-Picture Overview
 
 # Where the OS Sits
 
-<img src="./images/ch01_p02-02.png" class="h-72 mx-auto" />
+<img src="./images/cropped/ch01_p02-02_fig.png" class="h-72 mx-auto" />
 
 <p class="text-xs text-gray-500 text-center">Silberschatz, Figure 1.1 — Abstract view of the components of a computer system</p>
 
@@ -195,7 +201,7 @@ graph LR
 
 # System Calls — The OS API
 
-<img src="./images/ch02_p11-11.png" class="h-64 mx-auto" />
+<img src="./images/cropped/ch02_p11-11_fig.png" class="h-64 mx-auto" />
 
 <p class="text-xs text-gray-500 text-center">Silberschatz, Figure 2.6 — The handling of a user application invoking the open() system call</p>
 
@@ -231,7 +237,7 @@ graph TD
 
 # Storage Hierarchy
 
-<img src="./images/ch01_p11-11.png" class="h-56 mx-auto" />
+<img src="./images/cropped/ch01_p11-11_fig.png" class="h-56 mx-auto" />
 
 <p class="text-xs text-gray-500 text-center">Silberschatz, Figure 1.6 — Storage-device hierarchy</p>
 
@@ -290,6 +296,8 @@ make qemu    # Boot xv6 in QEMU emulator
 </div>
 </div>
 
+---
+layout: center
 ---
 
 # Part 3. Semester Preview

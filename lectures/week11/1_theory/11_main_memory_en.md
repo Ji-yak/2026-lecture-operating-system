@@ -99,24 +99,10 @@ Hardware for memory protection:
 
 <div class="text-left text-base leading-8">
 
-```text
-     Memory Layout                  Hardware Protection
-  +------------------+
-  |  Operating System | (high)     CPU -> address
-  +------------------+                    |
-  |                  |             +------v------+
-  |   Process P3     |             |  base <= addr  --no--> TRAP
-  |                  |             |  < base+limit?        (illegal)
-  +------------------+ <- base+limit      |yes
-  |                  |             +------v------+
-  |   Process P2     |             |   Memory    |
-  |                  |
-  +------------------+ <- base (300040)
-  |   Process P1     |
-  +------------------+
-  |      (free)      | (low)
-  +------------------+
-```
+<img src="./images/figures/p003_fig9.1.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.1 — A base and a limit register define a logical address space</p>
+<img src="./images/figures/p004_fig9.2.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.2 — Hardware address protection with base and limit registers</p>
 
 </div>
 
@@ -145,17 +131,8 @@ Classification based on when a program's addresses are determined
 
 <div class="text-left text-base leading-8">
 
-```text
-  source      compile       object       link        executable     load       program
-  program  ---------->    file     ---------->     file       ---------->  in memory
-                time                  time                        time
-              ^                      ^                           ^
-          Compile-time           Load-time                 Execution-time
-           binding               binding                    binding
-                                   ^
-                          dynamically linked
-                             libraries
-```
+<img src="./images/figures/p005_fig9.3.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.3 — Multistep processing of a user program</p>
 
 </div>
 
@@ -193,16 +170,8 @@ Distinguishing two address spaces
 
 </div>
 
-```text
-  Simplest MMU: Relocation Register scheme
-
-  +-------+   logical    +-------------+   physical    +--------+
-  |  CPU  | --346---->   |    MMU      | --14346--->   | Memory |
-  +-------+             | (relocation  |              +--------+
-                        |  reg=14000)  |
-                        |  346+14000   |
-                        +-------------+
-```
+<img src="./images/figures/p006_fig9.4.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.4 — Dynamic relocation using a relocation register</p>
 
 - User programs use only logical addresses (0 ~ max)
 - The actual physical address is translated by the MMU
@@ -315,18 +284,8 @@ A protection mechanism combining Relocation register + Limit register
 
 </div>
 
-```text
-                    limit        relocation
-                   register       register
-                      |               |
-                      v               v
-  CPU --> logical --> < ? --yes--> + --> physical --> Memory
-          address        |                address
-                         no
-                         |
-                         v
-                   TRAP: addressing error
-```
+<img src="./images/figures/p009_fig9.6.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.6 — Hardware support for relocation and limit registers</p>
 
 - **Limit register**: Restricts the range of logical addresses
 - **Relocation register**: Added to logical address to produce physical address
@@ -340,21 +299,8 @@ A protection mechanism combining Relocation register + Limit register
 
 A scheme that allocates variable-sized partitions to processes
 
-```text
-  Initial state      P8 exits        P9 allocated    P5 exits
-  +--------+     +--------+     +--------+     +--------+
-  |   OS   |     |   OS   |     |   OS   |     |   OS   |
-  +--------+     +--------+     +--------+     +--------+
-  |   P5   |     |   P5   |     |   P5   |     |  hole  |
-  |        |     |        |     |        |     |        |
-  +--------+     +--------+     +--------+     +--------+
-  |   P8   |     |  hole  |     |   P9   |     |   P9   |
-  |        |     |        |     +--------+     +--------+
-  +--------+     +--------+     |  hole  |     |  hole  |
-  |   P2   |     |   P2   |     +--------+     +--------+
-  +--------+     +--------+     |   P2   |     |   P2   |
-                                +--------+     +--------+
-```
+<img src="./images/figures/p010_fig9.7.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.7 — Variable partition</p>
 
 </div>
 
@@ -546,21 +492,8 @@ Logical address structure (page size = 2^n, address space = 2^m)
 
 <div class="text-left text-base leading-8">
 
-```text
-  Logical Address                              Physical Address
-  +------+------+                              +------+------+
-  |  p   |  d   |                              |  f   |  d   |
-  +------+------+                              +------+------+
-     |                                            ^
-     v                                            |
-  +------------------+                            |
-  | Page Table       |                            |
-  |  [0] -> frame 5  |                            |
-  |  [1] -> frame 6  |   p=1 -> f=6 -------------+
-  |  [2] -> frame 1  |
-  |  [3] -> frame 2  |
-  +------------------+
-```
+<img src="./images/figures/p013_fig9.8.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.8 — Paging hardware</p>
 
 </div>
 
@@ -573,28 +506,8 @@ Logical address structure (page size = 2^n, address space = 2^m)
 
 <div class="text-left text-base leading-8">
 
-```text
-  Logical Memory          Page Table         Physical Memory
-  +-----+ page 0          0 -> 5             +-----+ frame 0
-  | a b |                 1 -> 6             |     |
-  | c d |                 2 -> 1             +-----+ frame 1
-  +-----+ page 1          3 -> 2             | i j |   <- page 2
-  | e f |                                    | k l |
-  | g h |                                    +-----+ frame 2
-  +-----+ page 2                             | m n |   <- page 3
-  | i j |                                    | o p |
-  | k l |                                    +-----+ frame 3
-  +-----+ page 3                             |     |
-  | m n |                                    +-----+ frame 4
-  | o p |                                    |     |
-  +-----+                                    +-----+ frame 5
-                                             | a b |   <- page 0
-  logical addr 0 -> phys 20 (5x4+0)         | c d |
-  logical addr 3 -> phys 23 (5x4+3)         +-----+ frame 6
-  logical addr 4 -> phys 24 (6x4+0)         | e f |   <- page 1
-  logical addr 13 -> phys 9  (1x4+1)        | g h |
-                                             +-----+ frame 7
-```
+<img src="./images/figures/p015_fig9.10.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.10 — Paging model of logical and physical memory</p>
 
 </div>
 
@@ -606,32 +519,8 @@ Logical address structure (page size = 2^n, address space = 2^m)
 
 Frames are allocated from the free frame list when a process is assigned
 
-```text
-  (a) Before allocation                (b) After allocation
-  free-frame list: 14,13,18,20,15      free-frame list: 15
-
-  +------+                           +------+
-  | ...  |                           | ...  |
-  +------+ frame 13                  +------+ frame 13
-  |      |  <-----------+            |page 1|
-  +------+ frame 14     |            +------+ frame 14
-  |      |  <---------+ |            |page 0|
-  +------+            | |            +------+
-  | ...  |            | |            | ...  |
-  +------+ frame 18   | |            +------+ frame 18
-  |      |  <---+     | |            |page 2|
-  +------+      |     | |            +------+
-  | ...  |      |     | |            | ...  |
-  +------+ frame 20   | |            +------+ frame 20
-  |      |  <-+ |     | |            |page 3|
-  +------+    | |     | |            +------+
-               | |     | |
-  new process page table:             page table:
-  page 0 -> 14                        0 -> 14
-  page 1 -> 13                        1 -> 13
-  page 2 -> 18                        2 -> 18
-  page 3 -> 20                        3 -> 20
-```
+<img src="./images/figures/p016_fig9.11.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.11 — Free frames before and after allocation</p>
 
 </div>
 
@@ -726,26 +615,8 @@ A high-speed associative memory that serves as a **cache** for the page table
 
 <div class="text-left text-base leading-8">
 
-```text
-  Logical Address
-  +------+------+
-  |  p   |  d   |
-  +------+------+
-     |
-     v
-  +---------+       TLB hit
-  |   TLB   | -----------------> f --> +------+------+
-  | p  | f  |                          |  f   |  d   |  -> Physical Address
-  | 3  | 7  |       TLB miss          +------+------+
-  | 7  | 2  | -----------+                 |
-  | 1  | 5  |            v              +--------+
-  +---------+     +-------------+       | Memory |
-                  | Page Table  |       +--------+
-                  | [p] -> f    |
-                  +-------------+
-                        |
-                  TLB update: add (p, f)
-```
+<img src="./images/figures/p019_fig9.12.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.12 — Paging hardware with TLB</p>
 
 </div>
 
@@ -865,21 +736,8 @@ Memory protection by adding **protection bits** to each page table entry
 
 14-bit address space (0~16383), page size = 2KB, program uses 0~10468
 
-```text
-  Page Table                Physical Memory
-  +-------+-------+------+
-  | Page  | Frame | V/I  |     Process uses pages 0-5
-  +-------+-------+------+     (addresses 0 ~ 10468)
-  |   0   |   2   |  v   |
-  |   1   |   3   |  v   |     Page 5: addr 10240 ~ 12287
-  |   2   |   4   |  v   |     (but program only uses ~ 10468)
-  |   3   |   7   |  v   |     -> addresses 10469~12287 in page 5
-  |   4   |   8   |  v   |       are accessible but not actually used
-  |   5   |   9   |  v   |       (internal fragmentation)
-  |   6   |   0   |  i   |     <- invalid: trap on access
-  |   7   |   0   |  i   |     <- invalid: trap on access
-  +-------+-------+------+
-```
+<img src="./images/figures/p021_fig9.13.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.13 — Valid (v) or invalid (i) bit in a page table</p>
 
 </div>
 
@@ -897,16 +755,8 @@ Condition: The code must be **reentrant (read-only)**
 
 </div>
 
-```text
-  Process P1 Page Table     Physical Memory     Process P2 Page Table
-  +---+---+                 +-----------+        +---+---+
-  | 0 | 3 |--> frame 3 <--| libc pg 1  |<------| 0 | 3 |
-  | 1 | 4 |--> frame 4 <--| libc pg 2  |<------| 1 | 4 |
-  | 2 | 6 |--> frame 6 <--| libc pg 3  |<------| 2 | 6 |
-  | 3 | 1 |--> frame 1    | P1 data    |       | 3 | 7 |--> frame 7
-  +---+---+                | ...        |        +---+---+    (P2 data)
-                            +-----------+
-```
+<img src="./images/figures/p022_fig9.14.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.14 — Sharing of standard C library in a paging environment</p>
 
 - Example: Text editor used by 40 users
   - Shared: code pages (libc 2MB) x 1 copy = **2MB**
@@ -977,18 +827,8 @@ A technique that pages the page table itself
 
 </div>
 
-```text
-  32-bit Logical Address (4KB page):
-
-  +----------+----------+----------+
-  |    p1    |    p2    |    d     |
-  | (10 bit) | (10 bit) | (12 bit) |
-  +----------+----------+----------+
-       |           |          |
-       v           v          v
-  Outer Page   Inner Page   Offset
-    Table        Table     within Page
-```
+<img src="./images/figures/p024_fig9.15.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.15 — A two-level page-table scheme</p>
 
 - p1: Index into the outer page table (1024 entries)
 - p2: Index into the inner page table (1024 entries)
@@ -1001,23 +841,8 @@ A technique that pages the page table itself
 
 <div class="text-left text-base leading-8">
 
-```text
-  Logical Address:  p1 | p2 | d
-
-       p1                p2                   d
-       |                 |                    |
-       v                 v                    v
-  +----------+     +----------+         +-----------+
-  |          |     |          |         |           |
-  | Outer PT | ->  | Inner PT | ->      |   Frame   |
-  |  [p1]    |     |  [p2]=f  |        |  offset d |
-  |          |     |          |         |           |
-  +----------+     +----------+         +-----------+
-       |                |                    |
-       +---frame #--->--+----frame # + d ----+
-                                 |
-                         Physical Address
-```
+<img src="./images/figures/p025_fig9.16.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.16 — Address translation for a two-level 32-bit paging architecture</p>
 
 </div>
 
@@ -1068,30 +893,8 @@ A page table structure suitable for address spaces of 32 bits or more
 
 </div>
 
-```text
-  Logical Address
-  +------+------+
-  |  p   |  d   |
-  +------+------+
-     |
-     v
-  Hash Function
-     |
-     v
-  +------------------------------------------+
-  | Hash Table                               |
-  |  [h(p)] -> (p, frame_r, next) -> ...     |
-  |                                          |
-  |  bucket: collisions resolved via         |
-  |          linked list                     |
-  +------------------------------------------+
-     |
-     v
-  Obtain frame number r from the entry matching p
-     |
-     v
-  Physical Address = r | d
-```
+<img src="./images/figures/p025_fig9.17.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.17 — Hashed page table</p>
 
 - **Clustered page table**: A single entry stores mappings for multiple pages
   - Efficient for sparse address spaces
@@ -1106,23 +909,8 @@ A structure that maintains a single global table based on **frames**
 
 </div>
 
-```text
-  Logical Address
-  +------+------+------+
-  | pid  |  p   |  d   |
-  +------+------+------+
-     |      |
-     v      v
-  +----------------------------+
-  | Inverted Page Table        |    Number of entries = physical memory frame count
-  | [0] (pid_x, page_a)       |
-  | [1] (pid_y, page_b)       |
-  | ...                        |
-  | [i] (pid, p)  <- match!   |    -> physical address = (i, d)
-  | ...                        |
-  | [N] (pid_z, page_c)       |
-  +----------------------------+
-```
+<img src="./images/figures/p026_fig9.18.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.18 — Inverted page table</p>
 
 - Advantage: Significant memory savings (no per-process page table needed)
 - Disadvantage: Slow search (full table scan required) -> mitigated with **hash table**
@@ -1160,18 +948,8 @@ Exchanging an entire process between memory and disk (backing store)
 
 </div>
 
-```text
-  Main Memory               Backing Store (Disk)
-  +-----------+
-  |    OS     |
-  +-----------+     swap out
-  | Process 1 | ----------->  +-------------+
-  +-----------+              | Process 1   |
-  | Process 2 |              +-------------+
-  +-----------+     swap in  | Process 3   |
-  |  (free)   | <-----------  +-------------+
-  +-----------+
-```
+<img src="./images/figures/p028_fig9.19.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.19 — Standard swapping of two processes using a disk as a backing store</p>
 
 - **Swap out**: Move entire process from memory -> disk
 - **Swap in**: Restore entire process from disk -> memory
@@ -1192,14 +970,8 @@ A method that swaps out/in at the **page level** (the modern OS standard)
 
 </div>
 
-```text
-  Process A                Main Memory           Backing Store
-  pages: a,b,c,d,e    +---+---+---+---+---+
-                       | b | c | e |   |   |   a, d -> page out
-  Process B            +---+---+---+---+---+
-  pages: f,g,h,i,j    | f | h | j |   |   |   g, i -> page out
-                       +---+---+---+---+---+
-```
+<img src="./images/figures/p030_fig9.20.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.20 — Swapping with paging</p>
 
 - Covered in detail later in **Virtual Memory** (Ch 10)
 
@@ -1240,23 +1012,8 @@ layout: section
 
 </div>
 
-```text
-  CPU -> Logical    -> Segmentation -> Linear    -> Paging -> Physical
-        Address       Unit           Address     Unit     Address
-
-  Segmentation:
-  +----------+----------+
-  | selector | offset   |    -> references descriptor table
-  | (16 bit) | (32 bit) |    -> base + offset = linear address
-  +----------+----------+
-
-  Two-Level Paging (4KB page):
-  +----------+----------+----------+
-  |    p1    |    p2    |    d     |
-  | (10 bit) | (10 bit) | (12 bit) |
-  +----------+----------+----------+
-  CR3 -> Page Directory -> Page Table -> 4KB Page
-```
+<img src="./images/figures/p031_fig9.21.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.21 — Logical to physical address translation in IA-32</p>
 
 - When using 4MB pages: Page Directory directly points to a 4MB frame
 
@@ -1270,21 +1027,8 @@ An extension that allows 32-bit processors to access more than 4GB of physical m
 
 </div>
 
-```text
-  PAE disabled (2-level):
-  +------+------+------+
-  |  p1  |  p2  |  d   |     -> Max 4GB physical memory
-  | (10) | (10) | (12) |
-  +------+------+------+
-
-  PAE enabled (3-level):
-  +----+------+------+------+
-  |pdpt|  pd  |  pt  |  d   |  -> Max 64GB physical memory
-  | (2)| (9)  | (9)  | (12) |
-  +----+------+------+------+
-
-  CR3 -> Page Dir Pointer Table -> Page Dir -> Page Table -> 4KB Page
-```
+<img src="./images/figures/p034_fig9.24.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.24 — Page address extensions</p>
 
 - Page table entry expanded from 32-bit to **64-bit**
 - Base address: 20-bit -> **24-bit** (+ 12-bit offset = 36-bit physical address)
@@ -1300,17 +1044,8 @@ An extension that allows 32-bit processors to access more than 4GB of physical m
 
 </div>
 
-```text
-  x86-64 Linear Address (48-bit virtual -> 52-bit physical):
-
-  +--------+------+------+------+------+------+
-  | unused | PML4 | PDPT |  PD  |  PT  | offset|
-  | (16)   | (9)  | (9)  | (9)  | (9)  | (12)  |
-  +--------+------+------+------+------+------+
-  63    48 47   39 38  30 29  21 20  12 11    0
-
-  4-level paging hierarchy
-```
+<img src="./images/figures/p034_fig9.25.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.25 — x86-64 linear address</p>
 
 - **48-bit** virtual address space = 256TB
 - **52-bit** physical address (PAE extension) = 4PB
@@ -1327,19 +1062,8 @@ The most widely used 64-bit architecture in mobile/embedded systems
 
 </div>
 
-```text
-  ARMv8 4KB Translation Granule:
-
-  +--------+------+------+------+------+------+
-  | unused |  L0  |  L1  |  L2  |  L3  | offset|
-  | (16)   | (9)  | (9)  | (9)  | (9)  | (12)  |
-  +--------+------+------+------+------+------+
-  63    48 47   39 38  30 29  21 20  12 11    0
-
-  TTBR -> L0 Table -> L1 Table -> L2 Table -> L3 Table -> 4KB Page
-                        |            |
-                    1GB region   2MB region (shortcut possible)
-```
+<img src="./images/figures/p036_fig9.26.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.26 — ARM 4-KB translation granule</p>
 
 | Translation Granule | Page Size | Region Size |
 |-------------------|-----------|-------------|

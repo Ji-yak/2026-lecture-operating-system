@@ -59,25 +59,10 @@ Chapter Objectives:
 
 # HDD Structure
 
-<!-- Figure 11.1 (p.438) — Moving-head disk mechanism -->
+<img src="./images/figures/p002_fig11.1.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.1 — HDD moving-head disk mechanism</p>
 
 <div class="text-left text-base leading-8">
-
-Physical structure of a Hard Disk Drive
-
-```text
-        Spindle (rotation axis)
-           │
-    ┌──────┼──────┐
-    │   Platter   │  ←─ Disk platter (both sides used)
-    │  ┌───────┐  │
-    │  │Track  │  │  ←─ Concentric circular tracks
-    │  │ Sector│  │  ←─ Smallest unit of a track (512B~4KB)
-    │  └───────┘  │
-    └─────────────┘
-           ↕
-     Disk Arm + Read-Write Head
-```
 
 | Component | Description |
 |-----------|-------------|
@@ -485,7 +470,8 @@ When the disk is busy, new requests are stored in a **pending queue**
 
 # HDD Scheduling — FCFS
 
-<!-- Figure 11.6 (p.447) — FCFS disk scheduling -->
+<img src="./images/figures/p011_fig11.6.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.6 — FCFS disk scheduling</p>
 
 <div class="text-left text-base leading-8">
 
@@ -516,19 +502,8 @@ Total head movement distance:
 
 <div class="text-left text-base leading-8">
 
-```text
-  Cylinder:  0    14   37   53   65 67   98   122 124   183   199
-             |    |    |    |    |  |    |    |   |     |     |
-  Step 0     |    |    |    ●    |  |    |    |   |     |     |  (start: 53)
-  Step 1     |    |    |    └────────────●    |   |     |     |  → 98 (+45)
-  Step 2     |    |    |         |  |    └────────────────●    |  → 183 (+85)
-  Step 3     |    |    ●─────────────────────────────────┘    |  → 37 (+146)
-  Step 4     |    |    └─────────────────●   |     |     |     |  → 122 (+85)
-  Step 5     |    ●──────────────────────┘   |     |     |     |  → 14 (+108)
-  Step 6     |    └──────────────────────────●     |     |     |  → 124 (+110)
-  Step 7     |    |    |    |    ●────────────┘     |     |     |  → 65 (+59)
-  Step 8     |    |    |    |    | ●   |    |   |     |     |  → 67 (+2)
-```
+<img src="./images/figures/p011_fig11.6.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.6 — FCFS disk scheduling</p>
 
 122 → 14 → 124: the arm exhibits extreme back-and-forth **wild swing** behavior
 - If 37 and 14 were processed first, then 122 and 124, it would be much more efficient
@@ -539,7 +514,8 @@ Total head movement distance:
 
 # HDD Scheduling — SCAN (Elevator)
 
-<!-- Figure 11.7 (p.449) — SCAN disk scheduling -->
+<img src="./images/figures/p011_fig11.7.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.7 — SCAN disk scheduling</p>
 
 <div class="text-left text-base leading-8">
 
@@ -595,7 +571,8 @@ To solve this problem → **C-SCAN** was introduced
 
 # HDD Scheduling — C-SCAN (Circular SCAN)
 
-<!-- Figure 11.8 (p.450) — C-SCAN disk scheduling -->
+<img src="./images/figures/p012_fig11.8.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.8 — C-SCAN disk scheduling</p>
 
 <div class="text-left text-base leading-8">
 

@@ -68,7 +68,8 @@ Separation of Logical memory and Physical memory
 
 </div>
 
-<!-- Figure 10.1 (p.391) — Virtual memory larger than physical memory -->
+<img src="./images/figures/p003_fig10.1.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.1 — Virtual memory larger than physical memory</p>
 
 ---
 
@@ -94,7 +95,8 @@ The logical memory space as seen by a process
 
 </div>
 
-<!-- Figure 10.2 (p.392) — Virtual address space -->
+<img src="./images/figures/p003_fig10.2.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.2 — Virtual address space</p>
 
 ---
 
@@ -112,7 +114,8 @@ Library sharing through virtual memory
 
 </div>
 
-<!-- Figure 10.3 (p.392) — Shared library using virtual memory -->
+<img src="./images/figures/p004_fig10.3.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.3 — Shared library using virtual memory</p>
 
 ---
 
@@ -157,7 +160,8 @@ Hardware support to distinguish whether a page is in memory
 
 </div>
 
-<!-- Figure 10.4 (p.394) — Page table when some pages are not in main memory -->
+<img src="./images/figures/p005_fig10.4.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.4 — Page table when some pages are not in main memory</p>
 
 ---
 
@@ -177,7 +181,8 @@ Step-by-step procedure when an invalid page is accessed
 
 </div>
 
-<!-- Figure 10.5 (p.395) — Steps in handling a page fault -->
+<img src="./images/figures/p006_fig10.5.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.5 — Steps in handling a page fault</p>
 
 ---
 
@@ -243,7 +248,8 @@ An OS data structure for managing free frames
 
 </div>
 
-<!-- Figure 10.6 (p.397) — List of free frames -->
+<img src="./images/figures/p008_fig10.6.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.6 — List of free frames</p>
 
 ---
 
@@ -387,7 +393,8 @@ The problem when there are no free frames
 
 </div>
 
-<!-- Figure 10.9 (p.403) — Need for page replacement -->
+<img src="./images/figures/p014_fig10.9.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.9 — Need for page replacement</p>
 
 ---
 
@@ -413,7 +420,8 @@ Victim frame selection and replacement process
 
 </div>
 
-<!-- Figure 10.10 (p.403) — Page replacement -->
+<img src="./images/figures/p015_fig10.10.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.10 — Page replacement</p>
 
 ---
 
@@ -549,7 +557,8 @@ A fundamental limitation of FIFO
 
 </div>
 
-<!-- Figure 10.13 (p.406) — Belady's anomaly -->
+<img src="./images/figures/p018_fig10.13.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.13 — Page-fault curve for FIFO replacement (Belady's anomaly)</p>
 
 ---
 
@@ -758,7 +767,8 @@ Hardware support is essential
 
 </div>
 
-<!-- Figure 10.16 (p.409) — Use of a stack -->
+<img src="./images/figures/p021_fig10.16.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.16 — Use of a stack to record the most recent page references</p>
 
 ---
 
@@ -852,7 +862,8 @@ Combining FIFO + reference bit
 
 </div>
 
-<!-- Figure 10.17 (p.411) — Second-chance (clock) algorithm -->
+<img src="./images/figures/p023_fig10.17.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.17 — Second-chance (clock) page-replacement algorithm</p>
 
 ---
 
@@ -1119,25 +1130,13 @@ Relationship between CPU utilization and Degree of Multiprogramming
 
 <div class="text-left text-base leading-8">
 
-```text
-CPU utilization
-    ^
-    |       /\
-    |      /  \
-    |     /    \ <- thrashing begins
-    |    /      \
-    |   /        \
-    |  /          \
-    | /            \
-    +-----------------------> degree of multiprogramming
-```
+<img src="./images/figures/p032_fig10.20.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.20 — Thrashing</p>
 
 - Solution: use local replacement or priority replacement
   - Prevent one process's thrashing from affecting other processes
 
 </div>
-
-<!-- Figure 10.20 (p.420) — Thrashing -->
 
 ---
 
@@ -1193,7 +1192,8 @@ WS(t1) = {1, 2, 5, 6, 7}    WS(t2) = {3, 4}
 
 </div>
 
-<!-- Figure 10.22 (p.422) — Working-set model -->
+<img src="./images/figures/p034_fig10.22.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.22 — Working-set model</p>
 
 ---
 
@@ -1272,7 +1272,8 @@ Direct thrashing control
 
 </div>
 
-<!-- Figure 10.23 (p.424) — Page-fault frequency -->
+<img src="./images/figures/p036_fig10.23.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.23 — Page-fault frequency</p>
 
 ---
 
@@ -1282,21 +1283,8 @@ Relationship between number of frames and page fault rate
 
 <div class="text-left text-base leading-8">
 
-```text
-page fault rate
-    ^
-    |\
-    | \
-    |  \  <- increase frames (PFF > upper bound)
-    |   \
-    |    -- upper bound ----------------
-    |      \
-    |       \
-    |        -- lower bound -------------
-    |          \ <- decrease frames (PFF < lower bound)
-    |           \__
-    +-----------------------------------> number of frames
-```
+<img src="./images/figures/p036_fig10.23.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.23 — Page-fault frequency</p>
 
 - Key: manage to operate stably between upper/lower bounds
 
@@ -1400,15 +1388,8 @@ Memory allocation by splitting into powers of 2
 
 - Splitting process (256KB segment, 21KB request)
 
-```text
-256KB
-+-- 128KB (AL)          <- not used
-+-- 128KB (AR)
-    +-- 64KB (BL)
-    |   +-- 32KB (CL)  <- allocated for 21KB request!
-    |   +-- 32KB (CR)  <- buddy
-    +-- 64KB (BR)       <- not used
-```
+<img src="./images/figures/p040_fig10.26.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.26 — Buddy system allocation</p>
 
 - **Coalescing**: merge with adjacent buddy on deallocation
   - CL freed -> CL + CR = 64KB -> BL + BR = 128KB -> 256KB restored
@@ -1416,8 +1397,6 @@ Memory allocation by splitting into powers of 2
 - Disadvantage: **internal fragmentation** (33KB request -> 64KB allocation, approximately 50% waste)
 
 </div>
-
-<!-- Figure 10.26 (p.428) — Buddy system allocation -->
 
 ---
 
@@ -1445,7 +1424,8 @@ Per-kernel-object cache management
 
 </div>
 
-<!-- Figure 10.27 (p.428) — Slab allocation -->
+<img src="./images/figures/p040_fig10.27.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.27 — Slab allocation</p>
 
 ---
 

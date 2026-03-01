@@ -114,22 +114,9 @@ Two fundamental IPC models:
 
 <div class="text-left text-base leading-8">
 
-```text
- (a) Shared Memory              (b) Message Passing
+<img src="./images/figures/p021_fig.png" class="h-52 mx-auto" />
 
-┌─────────┐  ┌─────────┐      ┌─────────┐  ┌─────────┐
-│Process A│  │Process B│      │Process A│  │Process B│
-└────┬────┘  └────┬────┘      └────┬────┘  └────┬────┘
-     │            │                │            │
-     ▼            ▼                │            │
-  ┌──────────────────┐             ▼            ▼
-  │  Shared Memory   │        ┌──────────────────┐
-  └──────────────────┘        │  Message Queue   │
-                              │ m0 m1 m2 ... mn  │
-  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─       └──────────────────┘
-       Kernel                  ─ ─ ─ ─ ─ ─ ─ ─ ─
-                                    Kernel
-```
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.11 — (a) Shared memory. (b) Message passing.</p>
 
 - Shared memory: The kernel only sets up the shared region; subsequent access is normal memory access
 - Message passing: The kernel (system calls) is involved in every communication
@@ -753,22 +740,9 @@ Message delivery methods (based on size):
 
 <div class="text-left text-base leading-8">
 
-```text
-  Client                                    Server
-  ──────                                    ──────
-     │    Connection request                   │
-     │──────────────────────▷ [ Connection  ]  │
-     │                        [    Port     ]  │
-     │                                         │
-     │◁─── handle ─── [ Client Communication ] │
-     │                 [        Port         ] │
-     │                                         │
-     │      [ Server Communication ] ──▷handle─│
-     │      [        Port         ]            │
-     │                                         │
-     │      [ Shared Section Object ]          │
-     │      [   (for > 256 bytes)   ]          │
-```
+<img src="./images/figures/p035_fig.png" class="h-52 mx-auto" />
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.19 — Advanced local procedure calls in Windows</p>
 
 - ALPC is not directly exposed through the Windows API
 - Applications use standard RPC, and ALPC handles it internally when on the same system
@@ -1005,13 +979,9 @@ layout: section
 - Communication occurs through a pair of sockets (one per process)
 - Identified by **IP address + Port number**
 
-```text
-  Host X (146.86.5.20)                Web Server (161.25.19.8)
-  ┌──────────────────┐                ┌──────────────────┐
-  │  Socket           │                │  Socket           │
-  │  146.86.5.20:1625 │◄─────────────▶│  161.25.19.8:80   │
-  └──────────────────┘                └──────────────────┘
-```
+<img src="./images/figures/p043_fig.png" class="h-44 mx-auto" />
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.26 — Communication using sockets</p>
 
 - Client: assigned an arbitrary port greater than 1024 (e.g., 1625)
 - Server: waits on a **well-known port** (HTTP=80, SSH=22, FTP=21)

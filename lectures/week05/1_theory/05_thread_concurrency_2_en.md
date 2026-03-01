@@ -263,18 +263,8 @@ layout: section
 
 </div>
 
-```text
-                    fork           join
-  main thread ───────┬──────────────┬──── main thread
-                     │              │
-              task ──┼──────────────┘
-                     │              │
-              task ──┼──────────────┘
-                     │              │
-              task ──┴──────────────┘
-
-  Figure 4.16 — Fork-join parallelism (textbook p.181)
-```
+<img src="./images/figures/fig4_16.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.16 — Fork-join parallelism</p>
 
 ---
 
@@ -298,19 +288,8 @@ Task(problem):
         return combined results
 ```
 
-```text
-               ┌─ task ─┐
-               │        │
-         ┌─ task ─┐  ┌─ task ─┐
-         │        │  │        │
-       task    task  task    task
-         │        │  │        │
-         └─ join ─┘  └─ join ─┘
-               │        │
-               └─ join ─┘
-
-  Figure 4.17 — Fork-join in Java (textbook p.182)
-```
+<img src="./images/figures/fig4_17.png" class="h-64 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.17 — Fork-join in Java</p>
 
 ---
 
@@ -338,16 +317,8 @@ int sum = pool.invoke(task);
 
 </div>
 
-```text
-    ForkJoinTask<V>     (abstract)
-         │
-    ┌────┴────┐
-    │         │
-RecursiveTask<V>    RecursiveAction
-  (abstract)          (abstract)
-  V compute()       void compute()
-  (returns result)  (no result)
-```
+<img src="./images/figures/fig4_19.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.19 — UML class diagram for Fork-Join</p>
 
 ---
 
@@ -1208,17 +1179,8 @@ static int threadLocalVar;
 
 </div>
 
-```text
-  User space:    Thread A    Thread B    Thread C    Thread D
-                    │           │           │           │
-                    ▼           ▼           ▼           ▼
-  LWPs:         [ LWP 1 ]  [ LWP 2 ]  [ LWP 3 ]
-                    │           │           │
-                    ▼           ▼           ▼
-  Kernel space: [ KThread ] [ KThread ] [ KThread ]
-
-  Figure 4.20 — Lightweight process (LWP) (textbook p.193)
-```
+<img src="./images/figures/fig4_20.png" class="h-52 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.20 — Lightweight process (LWP)</p>
 
 <div class="text-left text-base leading-8">
 
@@ -1294,27 +1256,8 @@ layout: section
 
 # Windows Threads — Data Structures (Figure 4.21)
 
-```text
-  Kernel Space                          User Space
-  ┌──────────────────┐                 ┌──────────────────┐
-  │    ETHREAD        │                │      TEB          │
-  │ ┌──────────────┐ │                │ ┌──────────────┐ │
-  │ │thread start  │ │                │ │ thread id    │ │
-  │ │address       │ │                │ │ ...          │ │
-  │ │pointer to    │ │                │ │ user stack   │ │
-  │ │parent process│ │                │ │ thread-local │ │
-  │ └──────────────┘ │                │ │ storage      │ │
-  │        │         │                │ │ ...          │ │
-  │        ▼         │                │ └──────────────┘ │
-  │    KTHREAD        │                └──────────────────┘
-  │ ┌──────────────┐ │                         ▲
-  │ │ scheduling & │ │                         │
-  │ │ sync info    │ │                         │
-  │ │ ...          │ │                         │
-  │ │ kernel stack │──┼── pointer to TEB ──────┘
-  │ └──────────────┘ │
-  └──────────────────┘
-```
+<img src="./images/figures/fig4_21.png" class="h-72 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.21 — Windows thread data structures</p>
 
 <div class="text-left text-base leading-8">
 

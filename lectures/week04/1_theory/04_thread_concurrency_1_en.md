@@ -73,19 +73,11 @@ What threads in the same process **share**:
 
 <div class="text-left text-base leading-8">
 
-```text
- Single-threaded process          Multithreaded process
-
- ┌──────────────────┐            ┌──────────────────────────┐
- │   code   data   files│        │    code    data    files  │
- ├──────────────────┤            ├──────────────────────────┤
- │  registers       │            │ registers  registers  registers│
- │  PC              │            │ PC         PC         PC       │
- │  stack           │            │ stack      stack      stack    │
- ├──────────────────┤            ├──────────────────────────┤
- │     thread       │            │  thread   thread   thread     │
- └──────────────────┘            └──────────────────────────┘
-```
+<div class="flex justify-center gap-4">
+<img src="./images/figures/fig4_1_single.png" class="h-52" />
+<img src="./images/figures/fig4_1_multi.png" class="h-52" />
+</div>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.1 — Single-threaded and multithreaded processes</p>
 
 - Single-threaded: one execution flow, one PC, one stack
 - Multithreaded: **multiple execution flows**, each with its own independent PC and stack
@@ -139,16 +131,8 @@ What threads in the same process **share**:
 
 <div class="text-left text-base leading-8">
 
-```text
-                      ┌──────────────┐
-   (1) request ──────▷│              │
-   client             │   Server     │ (2) Create a new thread
-                      │   Process    │     to handle the request
-                      │              │
-                      │    ┌─thread──┤ (3) Server resumes
-                      │    │         │     waiting for requests
-                      └────┴─────────┘
-```
+<img src="./images/figures/fig4_2.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.2 — Multithreaded server architecture</p>
 
 **Traditional approach**: Create a new **process** per request → time-consuming, resource-wasteful
 
@@ -431,18 +415,8 @@ Speedup
 
 <div class="text-left text-base leading-8">
 
-```text
- Data Parallelism                 Task Parallelism
-
- ┌─ data ──────────────┐          ┌─ data ──────────────┐
- │ ┌────┐ ┌────┐       │          │     entire data      │
- │ │ 1/4│ │ 2/4│ ...   │          │  ┌──────┐ ┌──────┐  │
- │ └──┬─┘ └──┬─┘       │          │  │ sort │ │filter│  │
- │    ▼      ▼         │          │  └──┬───┘ └──┬───┘  │
- │ core0  core1 ...    │          │  core0     core1     │
- └─────────────────────┘          └─────────────────────┘
-  Same operation, different data   Different operations, same/different data
-```
+<img src="./images/figures/fig4_5.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.5 — Data parallelism vs task parallelism</p>
 
 | Category | Data Parallelism | Task Parallelism |
 |------|-----------------|-----------------|
@@ -468,18 +442,8 @@ layout: section
 
 <div class="text-left text-base leading-8">
 
-```text
- ┌──────────────────────────────────┐
- │          User Space              │
- │                                  │
- │   ○ ○ ○ ○ ○  ← User Threads     │
- │   │ │ │ │ │                      │
- ├───┼─┼─┼─┼─┼──────────────────────┤
- │   ▼ ▼ ▼ ▼ ▼                     │
- │   ● ● ● ● ●  ← Kernel Threads   │
- │          Kernel Space            │
- └──────────────────────────────────┘
-```
+<img src="./images/figures/fig4_6.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.6 — User and kernel threads</p>
 
 **User Threads**:
 - Managed by a user-level library (without kernel support)
@@ -507,12 +471,8 @@ layout: section
 
 <div class="text-left text-base leading-8">
 
-```text
- User Space:    ○  ○  ○  ○  ○
-                 \ | /  | /
-                  \|/   |/
- Kernel Space:    ●     (one kernel thread)
-```
+<img src="./images/figures/fig4_7.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.7 — Many-to-one model</p>
 
 Multiple user threads mapped to **one** kernel thread
 
@@ -536,11 +496,8 @@ Use cases:
 
 <div class="text-left text-base leading-8">
 
-```text
- User Space:    ○    ○    ○    ○
-                |    |    |    |
- Kernel Space:  ●    ●    ●    ●
-```
+<img src="./images/figures/fig4_8.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.8 — One-to-one model</p>
 
 Each user thread mapped to **one** kernel thread
 
@@ -564,12 +521,8 @@ Use cases:
 
 <div class="text-left text-base leading-8">
 
-```text
- User Space:    ○  ○  ○  ○  ○  ○
-                 \ | X  | / |
-                  \|/ \ |/  |
- Kernel Space:    ●    ●    ●
-```
+<img src="./images/figures/fig4_9.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.9 — Many-to-many model</p>
 
 Multiple user threads mapped to an **equal or smaller number of** kernel threads
 
@@ -591,12 +544,8 @@ Disadvantages:
 
 <div class="text-left text-base leading-8">
 
-```text
- User Space:    ○  ○  ○  ○  ○  ○
-                 \ | X  | /  |
-                  \|/ \ |/   |    (bound)
- Kernel Space:    ●    ●     ●
-```
+<img src="./images/figures/fig4_10.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.10 — Two-level model</p>
 
 **Many-to-Many** + **One-to-One** allowed
 

@@ -185,24 +185,9 @@ A process changes its **state** during execution:
 
 # Process State Transition Diagram (Figure 3.2)
 
-<div class="text-left text-base leading-7">
+<img src="./images/figures/p005_fig.png" class="h-56 mx-auto" />
 
-```text
-                    admitted                              exit
-          New ──────────────→ Ready ─────────────────────────→ Terminated
-                               ↑    scheduler dispatch    │
-                               │         ↓                │
-                               │       Running ───────────┘
-                               │         │
-              I/O or event     │         │ I/O or event wait
-              completion       │         ↓
-                               └────── Waiting
-
-                        ← interrupt ──┘
-                   (Ready ← Running)
-```
-
-</div>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.2 — Diagram of process state</p>
 
 ---
 
@@ -398,19 +383,14 @@ layout: section
 When a process enters the system, it is placed in a **scheduling queue**.
 
 **Ready Queue:**
-- A queue of processes waiting for the CPU
-- Typically implemented as a **linked list**
-- Queue header: contains a pointer to the first PCB
-- Each PCB: contains a pointer field to the next PCB
+- A queue of processes waiting for the CPU; implemented as a **linked list**
 
 **Wait Queue:**
 - A queue of processes waiting for a specific event (e.g., I/O completion)
-- A separate wait queue may exist for each device
 
-```text
-Ready Queue:  [header] → [PCB₂] → [PCB₃] → ...
-Wait Queue:   [header] → [PCB₇] → [PCB₁₄] → [PCB₆] → ...
-```
+<img src="./images/figures/p008_fig.png" class="h-44 mx-auto" />
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.4 — The ready queue and wait queues</p>
 
 </div>
 
@@ -488,37 +468,11 @@ When an interrupt occurs:
 
 # Context Switch Process — Detailed (Figure 3.6)
 
-<div class="text-left text-sm leading-7">
+<img src="./images/figures/p010_fig.png" class="h-80 mx-auto" />
 
-```text
-  Process P₀         Operating System         Process P₁
-  ──────────         ─────────────────        ──────────
-  executing
-       │
-  interrupt or
-  system call
-       │
-       └──────→  save state into PCB₀
-                         │
-                 reload state from PCB₁
-                         │
-                         └──────────────→  executing
-                                                │
-                                           interrupt or
-                                           system call
-                                                │
-                         ┌──────────────── save state into PCB₁
-                         │
-                 reload state from PCB₀
-                         │
-       ┌─────────────────┘
-       │
-  executing
-```
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.6 — Diagram showing context switch from process to process</p>
 
 During the P₀ → P₁ switch, P₀ is **idle**; during the P₁ → P₀ switch, P₁ is **idle**.
-
-</div>
 
 ---
 
@@ -597,20 +551,9 @@ A process can create several new processes during its execution.
 
 <div class="text-left text-sm leading-7">
 
-```text
-                        systemd
-                        pid = 1
-                     /     |      \
-                   /       |        \
-             logind      python      sshd
-           pid=8415    pid=2808    pid=3028
-               |                      |
-             bash                   sshd
-           pid=8416               pid=3610
-            /    \                    |
-          ps     vim                tcsh
-       pid=9298  pid=9204         pid=4005
-```
+<img src="./images/figures/p012_fig.png" class="h-44 mx-auto" />
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.7 — A tree of processes on a typical Linux system</p>
 
 - **systemd** (pid = 1): The **root parent** of all user processes
   - The first user process created during system boot

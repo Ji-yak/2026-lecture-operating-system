@@ -200,12 +200,9 @@ turn = j;           /* ② */
 - If the order of ① and ② is swapped, mutual exclusion can be broken
 - Example: if `turn = j` executes first → both processes can enter the CS
 
-```text
-Process 0               Process 1
-turn = 1                turn = 0, flag[1] = true
-flag[0] = true
-   CS                      CS       ← simultaneous entry!
-```
+<img src="./images/figures/fig6_4_peterson_reorder.png" class="h-28 mx-auto" />
+
+<div class="text-center text-sm text-gray-500">Figure 6.4 — The effects of instruction reordering in Peterson's solution</div>
 
 - Solution: use **Memory Barriers** to enforce ordering
 
@@ -591,7 +588,8 @@ layout: section
 
 # Monitor -- Structure
 
-<div class="text-left text-base leading-8">
+<div class="grid grid-cols-2 gap-4">
+<div class="text-left text-sm leading-7">
 
 **Monitor**: an ADT that automatically provides mutual exclusion for its internal functions
 
@@ -611,15 +609,23 @@ monitor monitor_name {
 - **Only one process at a time** can be active inside the monitor
 - Programmers do not need to explicitly write synchronization code
 - Internal variables are accessible **only by local functions**
-- Languages such as Java and C# support the monitor concept
 
+</div>
+<div class="flex flex-col items-center justify-center">
+
+<img src="./images/figures/fig6_12_monitor_schematic.png" class="h-72" />
+
+<div class="text-xs text-gray-500 mt-1">Figure 6.12 — Schematic view of a monitor</div>
+
+</div>
 </div>
 
 ---
 
 # Monitor -- Condition Variables
 
-<div class="text-left text-base leading-8">
+<div class="grid grid-cols-2 gap-4">
+<div class="text-left text-sm leading-7">
 
 Monitors alone are insufficient for some synchronization → **Condition Variables** are introduced
 
@@ -635,9 +641,17 @@ x.signal();   /* resumes one waiting process */
 
 **Handling after signal:**
 - **Signal and wait**: the signaler (P) waits, the awakened process (Q) runs
-- **Signal and continue**: P continues running, Q runs after P leaves the monitor
-- **Compromise**: signal immediately leaves the monitor, Q resumes immediately
+- **Signal and continue**: P continues, Q runs after P leaves
+- **Compromise**: signal immediately leaves the monitor, Q resumes
 
+</div>
+<div class="flex flex-col items-center justify-center">
+
+<img src="./images/figures/fig6_13_monitor_conditions.png" class="h-72" />
+
+<div class="text-xs text-gray-500 mt-1">Figure 6.13 — Monitor with condition variables</div>
+
+</div>
 </div>
 
 ---
@@ -933,7 +947,8 @@ A generalized synchronization tool for the Readers-Writers problem
 
 # Dining-Philosophers Problem
 
-<div class="text-left text-lg leading-10">
+<div class="grid grid-cols-2 gap-4">
+<div class="text-left text-sm leading-7">
 
 5 philosophers sit at a round table and must **pick up both adjacent chopsticks** to eat
 
@@ -942,8 +957,16 @@ A generalized synchronization tool for the Readers-Writers problem
 - Only one chopstick can be picked up at a time
 - After finishing eating, both chopsticks are put down
 - **A classic concurrency control problem**
-  - The problem of allocating multiple resources to multiple processes in a deadlock-free, starvation-free manner
+  - Allocating multiple resources to multiple processes in a deadlock-free, starvation-free manner
 
+</div>
+<div class="flex flex-col items-center justify-center">
+
+<img src="./images/figures/fig7_5_dining_philosophers.png" class="h-56" />
+
+<div class="text-xs text-gray-500 mt-1">Figure 7.5 — Dining philosophers</div>
+
+</div>
 </div>
 
 ---

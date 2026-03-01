@@ -131,17 +131,8 @@ layout: section
 
 The ready queue is split into multiple **separate queues**
 
-```text
- ┌──────────────────────┐  Highest priority
- │  Real-time processes │
- ├──────────────────────┤
- │  System processes    │
- ├──────────────────────┤
- │  Interactive (fg)    │  <-- RR
- ├──────────────────────┤
- │  Batch processes     │  <-- FCFS
- └──────────────────────┘  Lowest priority
-```
+<img src="./images/figures/p017_fig5_8.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.8 — Multilevel queue scheduling</p>
 
 **Scheduling between queues**
 - **Fixed priority**: lower queue executes only when upper queue is empty (starvation possible)
@@ -158,15 +149,8 @@ The ready queue is split into multiple **separate queues**
 
 Difference from Multilevel Queue: **processes can move between queues**
 
-```text
-  Q0 (RR, q=8)     --> completes if finished within quantum
-       |
-       v  demoted when quantum exhausted
-  Q1 (RR, q=16)    --> completes if finished within quantum
-       |
-       v  demoted when quantum exhausted
-  Q2 (FCFS)        --> runs until completion
-```
+<img src="./images/figures/p018_fig5_9.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.9 — Multilevel feedback queues</p>
 
 **Movement rules**
 - **Demotion**: demoted to a lower queue when the allocated time quantum is fully consumed
@@ -343,15 +327,8 @@ Two scheduling approaches:
 
 <div class="text-left text-base leading-8">
 
-```text
- (a) Common Ready Queue            (b) Per-Processor Queue
-
- ┌──┬──┬──┬─...─┬──┐              ┌──┬──┬──┐  ┌──┬──┐  ┌──┬──┬──┬──┐
- │T0│T1│T2│     │Tn│              │T0│T1│T2│  │T0│T1│  │T0│T1│T2│T3│
- └──┴──┴──┴─...─┴──┘              └──┴──┴──┘  └──┴──┘  └──┴──┴──┴──┘
-      |   |   |                      |           |           |
-   core0 core1 coreN              core0       core1       core2
-```
+<img src="./images/figures/p023_fig5_11.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.11 — Organization of ready queues</p>
 
 | Approach | Pros | Cons |
 |------|------|------|
@@ -373,17 +350,11 @@ Modern SMP systems mostly use **per-processor queues**
 - Wastes tens to hundreds of cycles on a cache miss
 - Can spend **up to 50% of time on memory wait**
 
-```text
- Single thread:
- [Compute][  Memory Stall  ][Compute][  Memory Stall  ][Compute]
-    C           M              C           M              C
-
- Dual-threaded core (interleaved):
- Thread 0: [ C ][  M  ][ C ][  M  ][ C ][  M  ]
- Thread 1:       [ C ][  M  ][ C ][  M  ][ C ][  M  ]
-           ------time----->
-           Another thread computes during memory stall!
-```
+<div class="flex gap-2 justify-center">
+<img src="./images/figures/p024_fig5_12.png" class="h-28" />
+<img src="./images/figures/p024_fig5_13.png" class="h-28" />
+</div>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.12 — Memory stall &amp; Figure 5.13 — Multithreaded multicore system</p>
 
 When one thread enters a memory stall, **another thread executes** -> increased core utilization
 
@@ -397,17 +368,11 @@ When one thread enters a memory stall, **another thread executes** -> increased 
 
 Multiple **hardware threads** placed on a single physical core
 
-```text
-        Processor
-  ┌─────────┬─────────┬─────────┬─────────┐
-  │ Core 0  │ Core 1  │ Core 2  │ Core 3  │
-  │ HW-T0   │ HW-T0   │ HW-T0   │ HW-T0   │
-  │ HW-T1   │ HW-T1   │ HW-T1   │ HW-T1   │
-  └─────────┴─────────┴─────────┴─────────┘
-                    |
-            OS View: 8 logical CPUs
-  [CPU0][CPU1][CPU2][CPU3][CPU4][CPU5][CPU6][CPU7]
-```
+<div class="flex gap-2 justify-center items-end">
+<img src="./images/figures/p025_fig5_14.png" class="h-44" />
+<img src="./images/figures/p025_fig5_14_1.png" class="h-28" />
+</div>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.14 — Chip multithreading</p>
 
 - Intel: **Hyper-Threading** (SMT) -- 2 threads per core
 - Oracle Sparc M7: 8 threads per core x 8 cores = **64 logical CPUs**
@@ -439,17 +404,8 @@ Each hardware thread appears as a **logical processor** to the OS
 
 On multithreaded multicore processors, **two levels of scheduling** are needed
 
-```text
-    Software threads (OS level)
-         |          |          |          |
-    ┌────v────┐┌────v────┐┌────v────┐┌────v────┐  Level 1
-    │ HW-T 0  ││ HW-T 1  ││ HW-T 0  ││ HW-T 1  │  (OS scheduler)
-    └────┬────┘└────┬────┘└────┬────┘└────┬────┘
-         └────┬────┘          └────┬────┘
-         ┌────v────┐         ┌────v────┐          Level 2
-         │ Core 0  │         │ Core 1  │          (HW scheduler)
-         └─────────┘         └─────────┘
-```
+<img src="./images/figures/p026_fig5_15.png" class="h-52 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.15 — Two levels of scheduling</p>
 
 **Level 1 (OS)**: assigns software threads to logical processors (HW threads)
 **Level 2 (Core)**: decides which hardware thread to switch to
@@ -487,16 +443,8 @@ Linux: supports **hard affinity** via the `sched_setaffinity()` system call
 
 **NUMA (Non-Uniform Memory Access)**
 
-```text
-  ┌──────────┐                    ┌──────────┐
-  │   CPU 0  │  <-- fast access   │   CPU 1  │
-  │          │                    │          │
-  └────┬─────┘                    └────┬─────┘
-       |         slow access           |
-  ┌────v─────┐  <----------->    ┌────v─────┐
-  │ Memory 0 │   interconnect    │ Memory 1 │
-  └──────────┘                   └──────────┘
-```
+<img src="./images/figures/p028_fig5_16.png" class="h-48 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.16 — NUMA and CPU scheduling</p>
 
 - Each processor has nearby **local memory**
 - Local memory access is **fast**, remote memory access is **slow**
@@ -841,16 +789,8 @@ Default scheduler since Linux 2.6.23
 
 <div class="text-left text-base leading-8">
 
-```text
-  Real-time                    Normal (CFS)
-  ┌────────────────────────┐  ┌──────────────────────┐
-  │  0  1  2  ...  98  99  │  │ 100 101 ... 138 139  │
-  └────────────────────────┘  └──────────────────────┘
-  <-- higher priority                lower priority -->
-
-  nice value:                  -20 -19 ... +18 +19
-  maps to priority:            100 101 ... 138 139
-```
+<img src="./images/figures/p040_fig5_26.png" class="h-28 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.26 — Scheduling priorities on a Linux system</p>
 
 - **Smaller** number means higher priority
 - Real-time tasks (0~99) always take **precedence** over normal tasks (100~139)
@@ -968,17 +908,8 @@ CFS stores runnable tasks in a **Red-Black Tree** (key = vruntime)
 
 CFS load balancing utilizes a **scheduling domain hierarchy**
 
-```text
-        Physical Processor Domain (NUMA Node)
-       ┌──────────────────────────────────────┐
-       │  Domain 0           Domain 1         │
-       │ ┌─────────────┐  ┌─────────────┐    │
-       │ │ Core0  Core1│  │ Core2  Core3│    │
-       │ │  (shared L2) │  │  (shared L2) │    │
-       │ └─────────────┘  └─────────────┘    │
-       │          shared L3                    │
-       └──────────────────────────────────────┘
-```
+<img src="./images/figures/p040_fig5_27.png" class="h-48 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.27 — NUMA-aware load balancing with Linux CFS scheduler</p>
 
 **Balancing strategy** (from lower to higher levels)
 1. Migration between cores within the same domain (shared L2, low cost)

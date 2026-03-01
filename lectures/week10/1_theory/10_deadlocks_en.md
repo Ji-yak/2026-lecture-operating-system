@@ -281,29 +281,12 @@ Represent the following state as a resource-allocation graph:
 
 </div>
 
-```text
-  T = {T1, T2, T3}
-  R = {R1(1), R2(2), R3(1), R4(3)}
+<img src="./images/figures/fig8_4_rag_no_deadlock.png" class="h-56 mx-auto" />
 
-       ┌─────┐         ┌─────┐
-       │ R1  │         │ R3  │
-       │  ●  │         │  ●  │
-       └──┬──┘         └──┬──┘
-     ↗    ↓               ↓
-  (T1)   (T2)  ←──────  (T3)
-     ↖    ↑
-       └──┴──┐
-       │ R2  │         ┌─────┐
-       │ ● ● │         │ R4  │
-       └─────┘         │●●●  │
-                        └─────┘
+<div class="text-center text-sm text-gray-500">Figure 8.4 — Resource-allocation graph (no deadlock)</div>
 
-  T1: holds R2, waiting for R1
-  T2: holds R1, R2, waiting for R3
-  T3: holds R3
-```
-
-In this state, if T3 releases R3 then T2 can proceed → **No Deadlock**
+- T1: holds R2, waiting for R1 / T2: holds R1, R2, waiting for R3 / T3: holds R3
+- If T3 releases R3 then T2 can proceed → **No Deadlock**
 
 ---
 
@@ -315,57 +298,36 @@ If T3 additionally requests R2 from the previous state:
 
 </div>
 
-```text
-       ┌─────┐         ┌─────┐
-       │ R1  │         │ R3  │
-       │  ●  │         │  ●  │
-       └──┬──┘         └──┬──┘
-     ↗    ↓               ↓
-  (T1)   (T2)  ←──────  (T3)
-     ↖    ↑               ↑
-       └──┴──┐            │
-       │ R2  │────────────┘
-       │ ● ● │   T3→R2 (request)
-       └─────┘
+<img src="./images/figures/fig8_5_rag_deadlock.png" class="h-48 mx-auto" />
 
-  Two cycles occur:
-    T1 → R1 → T2 → R3 → T3 → R2 → T1
-    T2 → R3 → T3 → R2 → T2
+<div class="text-center text-sm text-gray-500">Figure 8.5 — Resource-allocation graph with a deadlock</div>
 
-  → Deadlock!
-```
+Two cycles: T1→R1→T2→R3→T3→R2→T1 and T2→R3→T3→R2→T2 → **Deadlock!**
 
 ---
 
 # RAG — Relationship Between Cycle and Deadlock
 
-<div class="text-left text-lg leading-10">
+<div class="grid grid-cols-2 gap-4">
+<div class="text-left text-base leading-8">
 
 **Cycle and Deadlock:**
 
 | Situation | Conclusion |
 |-----------|-----------|
-| No cycle | No deadlock (necessary condition not met) |
-| Cycle exists + each resource has 1 instance | **Definitely** deadlock |
-| Cycle exists + resources have multiple instances | Deadlock is **possible** (but not guaranteed) |
+| No cycle | No deadlock |
+| Cycle + 1 instance each | **Definitely** deadlock |
+| Cycle + multiple instances | **Possible** (not guaranteed) |
 
 </div>
+<div class="flex flex-col items-center justify-center">
 
-```text
-  Example with cycle but no deadlock:
+<img src="./images/figures/fig8_6_rag_cycle_no_deadlock.png" class="h-52" />
 
-       ┌─────┐
-       │ R1  │
-       │  ●  │           If T4 releases R2
-       └──┬──┘           T3 can proceed
-     ↗    ↓              → cycle is broken
-  (T1)   (T3)
-     ↖               (T2)  (T4)
-       └──┴──┐        ↑     ↑
-       │ R2  │────────┘─────┘
-       │ ● ● │
-       └─────┘
-```
+<div class="text-xs text-gray-500 mt-1">Figure 8.6 — Cycle but no deadlock</div>
+
+</div>
+</div>
 
 ---
 layout: section
@@ -651,19 +613,9 @@ layout: section
 
 </div>
 
-```text
-  ┌───────────────────────────────────────┐
-  │            All States                 │
-  │  ┌───────────────────────────┐       │
-  │  │       Safe States         │       │
-  │  │                           │       │
-  │  │   ┌─────────────────┐    │       │
-  │  │   │  Deadlocked     │    │       │
-  │  │   │  States ⊂ Unsafe│    │       │
-  │  └───┴─────────────────┴────┘       │
-  │       Unsafe States                   │
-  └───────────────────────────────────────┘
-```
+<img src="./images/figures/fig8_8_safe_unsafe_states.png" class="h-44 mx-auto" />
+
+<div class="text-center text-sm text-gray-500">Figure 8.8 — Safe, unsafe, and deadlocked state spaces</div>
 
 Safe → Deadlock absolutely impossible / Unsafe → Deadlock possible (but not guaranteed)
 
@@ -759,29 +711,25 @@ Cycle detection: O(n^2) — n is the number of threads
 
 </div>
 
-```text
-  Initial state:
-       ┌────┐
-       │ R1 │
-       │ ●  │
-       └────┘
-      ↗      ╲ (claim, dashed)
-  (T1)        (T2)
-      ╲          ↗
-   (claim)  ┌────┐
-            │ R2 │
-            │ ●  │
-            └────┘
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col items-center">
 
-  What if T2 requests R2?
+<img src="./images/figures/fig8_9_rag_avoidance.png" class="h-44" />
 
-  Converting to R2 → T2 (assignment):
-  T1 ···> R2 → T2 ···> R1 → T1  ← cycle formed!
+<div class="text-xs text-gray-500 mt-1">Figure 8.9 — RAG for deadlock avoidance</div>
 
-  → Allocation denied! (would result in unsafe state)
-```
+</div>
+<div class="flex flex-col items-center">
 
-If T1 requests R2 and T2 requests R1 → deadlock
+<img src="./images/figures/fig8_10_rag_unsafe.png" class="h-44" />
+
+<div class="text-xs text-gray-500 mt-1">Figure 8.10 — Unsafe state (cycle formed)</div>
+
+</div>
+</div>
+
+- If T2 requests R2: converting claim edge to assignment edge creates a cycle → **Allocation denied!**
+- Dashed lines = claim edges (future requests declared in advance)
 
 ---
 
@@ -1054,21 +1002,11 @@ Converting from a Resource-Allocation Graph to a Wait-for Graph:
 
 </div>
 
-```text
-  Resource-Allocation Graph:          Wait-for Graph:
+<img src="./images/figures/fig8_11_wait_for_graph.png" class="h-52 mx-auto" />
 
-    (T1)──→[R1]──→(T2)                (T1)──→(T2)
-             ↑                                  │
-    (T5)──→[R3]──→(T3)                (T5)──→(T3)
-                    │                           │
-    (T4)←─[R4]←──(T3)                (T4)←───(T3)
-     │              ↑                  │
-     └──→[R5]──→(T2)                  └──→(T2)
-              └──→(T4)                      (T4)
+<div class="text-center text-sm text-gray-500">Figure 8.11 — (a) Resource-allocation graph. (b) Corresponding wait-for graph</div>
 
-  Cycle in Wait-for Graph:
-    T1 → T2 → T3 → T4 → T1  → Deadlock!
-```
+Cycle in wait-for graph: T1 → T2 → T3 → T4 → T1 → **Deadlock!**
 
 ---
 
