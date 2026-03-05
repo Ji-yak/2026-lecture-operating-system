@@ -527,11 +527,8 @@ layout: section
 
 **Event Latency** = time from event occurrence to service completion
 
-```text
-  event occurs                          system responds
-       |<-------- event latency -------->|
-       t0                               t1
-```
+<img src="./images/figures/p029_fig5_17.png" class="h-28 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.17 — Event latency</p>
 
 **Two types of latency:**
 
@@ -554,15 +551,8 @@ Hard real-time: latency must be **bounded** (a few microseconds)
 
 Real-time processes are modeled as **periodic**
 
-```text
-       p (period)           p                   p
-  |<------------>|    |<------------>|    |<------------>|
-  |  d (deadline)|    |  d           |    |  d           |
-  |<-------->|   |    |<-------->|   |    |<-------->|   |
-  | t (burst)|   |    | t        |   |    | t        |   |
-  |<---->|   |   |    |<---->|   |   |    |<---->|   |   |
-  period 1        period 2        period 3
-```
+<img src="./images/figures/p032_fig5_20.png" class="h-36 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.20 — Periodic task</p>
 
 - **t**: processing time (CPU burst)
 - **d**: deadline

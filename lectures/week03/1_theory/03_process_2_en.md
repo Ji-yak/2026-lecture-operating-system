@@ -782,12 +782,13 @@ Two types:
 
 # Ordinary Pipes
 
+<div class="grid grid-cols-[1fr_1fr] gap-4">
 <div class="text-left text-base leading-8">
 
 Standard producer-consumer pattern:
-- The producer writes to the **write end**
-- The consumer reads from the **read end**
-- **Unidirectional** — use two pipes for bidirectional communication
+- Producer writes to the **write end**
+- Consumer reads from the **read end**
+- **Unidirectional** — use two pipes for bidirectional
 
 Creation in UNIX:
 ```c
@@ -796,17 +797,16 @@ pipe(fd);
 ```
 - `fd[0]` — **read end** (read-only)
 - `fd[1]` — **write end** (write-only)
-
-```text
-  Parent                          Child
-  ──────                          ─────
-  fd[1] ──write──▷ [  pipe  ] ──read──▷ fd[0]
-```
-
-- A pipe is a special file → accessed using standard `read()`, `write()` system calls
+- A pipe is a special file → accessed via `read()`, `write()`
 - The child **inherits** the pipe through fork()
 
 </div>
+<div class="flex items-center justify-center">
+<img src="./images/figures/p036_fig.png" class="h-44" />
+</div>
+</div>
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.23 — File descriptors for ordinary pipes</p>
 
 ---
 
@@ -1143,33 +1143,9 @@ Key components:
 
 # RPC Execution Flow (Figure 3.29)
 
-<div class="text-left text-base leading-8">
+<img src="./images/figures/p048_fig.png" class="h-96 mx-auto" />
 
-```text
- Client                              Server
- ──────                              ──────
-   │                                   │
-   │ 1. Client calls the stub          │
-   │    (same interface as local call) │
-   ▼                                   │
- [Client Stub]                         │
-   │ 2. Marshall parameters            │
-   │    (convert to XDR format)        │
-   ▼                                   │
- [Network] ─────── message ──────▷ [Server Stub]
-   │                                   │ 3. Unmarshall
-   │                                   │    (restore parameters)
-   │                                   ▼
-   │                              [Execute actual procedure]
-   │                                   │ 4. Marshall result
-   │                                   ▼
- [Client Stub] ◁── return message ── [Server Stub]
-   │ 5. Unmarshall result             │
-   ▼                                   │
- [Return result]                       │
-```
-
-</div>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.29 — Execution of a remote procedure call (RPC)</p>
 
 ---
 

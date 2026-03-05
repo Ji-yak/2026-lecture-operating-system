@@ -93,17 +93,8 @@ Major attack types:
 
 <div class="text-left text-base leading-8">
 
-```text
-  ┌─────────────────────┐
-  │   Application       │  ← Third-party app vulnerabilities, SQL injection
-  ├─────────────────────┤
-  │   Operating System   │  ← Privilege escalation, malware, misconfigurations
-  ├─────────────────────┤
-  │   Network            │  ← Sniffing, spoofing, DoS
-  ├─────────────────────┤
-  │   Physical           │  ← Physical access, equipment theft
-  └─────────────────────┘
-```
+<img src="./images/figures/figure_16_1.png" class="mx-auto" style="max-height:280px;" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 16.1 — The four-layered model of security</p>
 
 - Security is only as strong as its **weakest link** (chain analogy)
 - **Human Factor**: Attacks exploiting people, such as social engineering and phishing
@@ -374,17 +365,8 @@ layout: section
 | **Spoofing** | Forging IP/MAC addresses to impersonate a trusted source | Active attack |
 | **Man-in-the-Middle** | Intercepting and modifying data during communication | Active attack |
 
-```text
-  Normal:        Alice ──────────────→ Bob
-
-  Sniffing:      Alice ──────────────→ Bob
-                           ↑
-                        Mallory (eavesdropping)
-
-  MITM:          Alice ───→ Mallory ───→ Bob
-                       ←───         ←───
-                 (each thinks they are communicating with the other)
-```
+<img src="./images/figures/figure_16_6.png" class="mx-auto" style="max-height:340px;" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 16.6 — Standard security attacks</p>
 
 - **Zombie system**: A system hijacked by a hacker, used to conceal the source of attacks
 - WarDriving: Searching for unprotected WiFi networks to gain access
@@ -486,10 +468,8 @@ Key property: Given a ciphertext c, recovering the original message m without th
 
 Encryption and decryption performed with the same key (k)
 
-```text
-  Plaintext m ──[Key k]──→ Ciphertext c = Ek(m) ──[Key k]──→ Plaintext m = Dk(c)
-                Encryption                          Decryption
-```
+<img src="./images/figures/figure_16_7.png" class="mx-auto" style="max-height:300px;" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 16.7 — A secure communication over an insecure medium</p>
 
 | Algorithm | Key Length | Characteristics |
 |----------|---------|------|
@@ -938,20 +918,8 @@ layout: section
 
 Hardware-level privilege hierarchy — based on the **Bell-LaPadula model**
 
-```text
-  ┌───────────────────────────┐
-  │       Ring 3 (User)       │  ← General applications
-  │   ┌───────────────────┐   │
-  │   │   Ring 2          │   │  ← Device drivers (some OSes)
-  │   │   ┌───────────┐   │   │
-  │   │   │  Ring 1    │   │   │  ← OS services
-  │   │   │  ┌─────┐   │   │   │
-  │   │   │  │ R 0 │   │   │   │  ← Kernel (highest privilege)
-  │   │   │  └─────┘   │   │   │
-  │   │   └───────────┘   │   │
-  │   └───────────────────┘   │
-  └───────────────────────────┘
-```
+<img src="./images/figures/figure_17_1.png" class="mx-auto" style="max-height:300px;" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 17.1 — Protection-ring structure</p>
 
 - Ring i provides only a subset of Ring j (j < i) functionality
 - Ring 0 has the highest privilege (full privileges)
@@ -975,12 +943,8 @@ Hardware-level privilege hierarchy — based on the **Bell-LaPadula model**
 
 **ARMv8 Exception Levels:**
 
-```text
-  EL3  Secure Monitor (TrustZone)    ← Highest privilege
-  EL2  Hypervisor                     ← VM management
-  EL1  OS Kernel                      ← Kernel
-  EL0  User Application               ← General apps
-```
+<img src="./images/figures/figure_17_3.png" class="mx-auto" style="max-height:250px;" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 17.3 — ARM architecture</p>
 
 - **TrustZone**: Protects on-chip cryptographic keys, even the kernel cannot access directly
 - Android 5.0+: Actively uses TrustZone for password and encryption key protection

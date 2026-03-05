@@ -220,24 +220,28 @@ layout: section
 
 <div class="text-left text-base leading-8">
 
+<div class="grid grid-cols-[1fr_1fr] gap-4">
+<div>
+
 **Concurrency**
 - Multiple tasks **making progress** at the same time
 - Possible even on a single core — **interleaving** via time-sharing
 
-```text
- Single core:  T1  T2  T3  T4  T1  T2  T3  T4  T1 ...
-              ────────────────────────────────────▷ time
-```
+<img src="./images/figures/fig4_3.png" class="h-20 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.3 — Concurrent execution on a single-core system</p>
+
+</div>
+<div>
 
 **Parallelism**
 - Multiple tasks **actually executing simultaneously**
 - Only possible on multi-core — each core runs a different thread
 
-```text
- Core 1:  T1      T3      T1      T3      T1 ...
- Core 2:  T2      T4      T2      T4      T2 ...
-         ────────────────────────────────────▷ time
-```
+<img src="./images/figures/fig4_4.png" class="h-28 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.4 — Parallel execution on a multicore system</p>
+
+</div>
+</div>
 
 > Concurrency without parallelism is possible, but parallelism without concurrency is not
 
@@ -359,28 +363,8 @@ Example:
 
 <div class="text-left text-base leading-8">
 
-```text
-Speedup
-  16 ┤    ╱ Ideal (S=0)
-     │   ╱
-  14 ┤  ╱
-     │ ╱
-  12 ┤╱
-     │╱   ╱── S = 0.05
-  10 ┤   ╱
-     │  ╱
-   8 ┤ ╱    ╱── S = 0.10
-     │╱    ╱
-   6 ┤    ╱
-     │   ╱
-   4 ┤──╱──────────────── S = 0.25
-     │ ╱
-   2 ┤╱────────────────── S = 0.50
-     │
-   0 ┼──┬──┬──┬──┬──┬──┬──┬──▷
-     0  2  4  6  8  10 12 14 16
-              Number of Cores
-```
+<img src="./images/figures/fig4_amdahl.png" class="h-72 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Amdahl's Law — Speedup vs number of processing cores</p>
 
 - The smaller S is (the higher the parallelization ratio), the greater the effect of adding cores
 - If S = 0.50, the maximum is 2x regardless of the number of cores

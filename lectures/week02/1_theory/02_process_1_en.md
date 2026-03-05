@@ -61,28 +61,28 @@ layout: section
 
 # The Process — Memory Layout (Figure 3.1)
 
+<div class="grid grid-cols-[1fr_1fr] gap-4">
 <div class="text-left text-base leading-8">
 
 The memory layout of a process is divided into several **sections**:
 
-```text
-┌──────────────┐  max (high address)
-│    Stack     │  ← Temporary data during function calls (parameters, return address, local variables)
-│      ↓       │
-│              │
-│      ↑       │
-│    Heap      │  ← Dynamically allocated memory at runtime (malloc, new)
-├──────────────┤
-│    Data      │  ← Global variables
-├──────────────┤
-│    Text      │  ← Executable code
-└──────────────┘  0 (low address)
-```
+- **Text** — executable code
+- **Data** — global variables
+- **Heap** — dynamically allocated at runtime (`malloc`, `new`)
+- **Stack** — temporary data during function calls (parameters, return address, local variables)
 
-- **Text / Data** sections: **fixed** in size (do not change during program execution)
-- **Stack / Heap** sections: grow and shrink **dynamically**
+<br>
+
+- **Text / Data**: **fixed** in size
+- **Stack / Heap**: grow and shrink **dynamically**
 
 </div>
+<div class="flex items-center justify-center">
+<img src="./images/figures/p002_fig.png" class="h-80" />
+</div>
+</div>
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.1 — Layout of a process in memory</p>
 
 ---
 
@@ -213,26 +213,28 @@ A process changes its **state** during execution:
 
 # Process Control Block — PCB (Figure 3.3)
 
+<div class="grid grid-cols-[1fr_1fr] gap-4">
 <div class="text-left text-base leading-8">
 
 Each process is represented in the OS by a **PCB (Process Control Block)**.
 - Also known as: **task control block**
 
-```text
-┌─────────────────────────┐
-│     Process state        │  ← new, ready, running, waiting, terminated
-│     Process number (pid) │  ← unique process identifier
-│     Program counter      │  ← address of the next instruction to execute
-│     Registers            │  ← CPU register values
-│     Memory limits        │  ← memory management information
-│     ...                  │
-│     List of open files   │  ← I/O status information
-└─────────────────────────┘
-```
-
 The PCB serves as the repository for all the data needed to **start or restart** a process.
 
+- Process state (new, ready, running, …)
+- Process number (pid)
+- Program counter
+- CPU registers
+- Memory limits
+- List of open files, etc.
+
 </div>
+<div class="flex items-center justify-center">
+<img src="./images/figures/p005_fig2.png" class="h-72" />
+</div>
+</div>
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.3 — Process control block (PCB)</p>
 
 ---
 
@@ -398,24 +400,11 @@ When a process enters the system, it is placed in a **scheduling queue**.
 
 # Queueing Diagram (Figure 3.5)
 
-<div class="text-left text-sm leading-7">
+<div class="text-left text-base leading-8">
 
-```text
-                    ┌─────────────┐
-                    │ Ready Queue │──→ [CPU] ──→ (process terminates)
-                    └─────────────┘         │
-                          ↑                 │
-                          │                 ├── I/O request → [I/O Wait Queue] → I/O complete → (Ready Queue)
-                          │                 │
-                          │                 ├── time slice expired → (Ready Queue)
-                          │                 │
-                          │                 ├── child process created → [Child Termination Wait Queue]
-                          │                 │                              → child terminates → (Ready Queue)
-                          │                 │
-                          │                 └── waiting for interrupt → [Interrupt Wait Queue]
-                          │                                          → interrupt occurs → (Ready Queue)
-                          └─────────────────────────────────────────────────┘
-```
+<img src="./images/figures/p009_fig.png" class="h-56 mx-auto" />
+
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 3.5 — Queueing-diagram representation of process scheduling</p>
 
 The process repeats this cycle until it terminates.
 Upon termination, it is removed from all queues, and its PCB and resources are deallocated.

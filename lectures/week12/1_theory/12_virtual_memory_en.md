@@ -1054,23 +1054,13 @@ Practical implementation strategy for global replacement
   - Uses LRU approximation algorithm
   - Stops when free memory reaches the **maximum threshold**
 
-```text
-free memory
-    |
-    |    +- maximum threshold ---------
-    |    |  d: reaper stops
-    |    |
-    |    |  b: reaper stops
-    |    |
-    |    +- minimum threshold ---------
-    |       a: reaper starts   c: reaper starts
-    +-------------------------------------- time
-```
-
 - Linux: if free memory is critically low, **OOM Killer** runs
   - Terminates the process with the highest OOM score
 
 </div>
+
+<img src="./images/figures/p029_fig10.18.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.18 — Reclaiming pages</p>
 
 ---
 
@@ -1322,33 +1312,17 @@ An alternative to swap out
 
 </div>
 
-<!-- Figures 10.24, 10.25 (p.425-426) — Memory compression -->
-
 ---
 
 # Memory Compression Operation
 
 Free-frame list and compressed frame list
 
-<div class="text-left text-base leading-8">
+<img src="./images/figures/p037_fig10.24.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.24 — Free-frame list before compression</p>
 
-```text
-[Before compression]
-free-frame list:  7 -> 2 -> 9 -> 21 -> 27 -> 16
-modified list:    15 -> 3 -> 35 -> 26
-
-[After compression]
-- Take frame 7 from the free-frame list
-- Compress contents of frames 15, 3, 35 and store in frame 7
-- Frame 7 moves to the compressed frame list
-- Frames 15, 3, 35 are returned to the free-frame list
-
-free-frame list:  2 -> 9 -> 21 -> 27 -> 16 -> 15 -> 3 -> 35
-compressed list:  7 (contains contents of 15+3+35)
-modified list:    26
-```
-
-</div>
+<img src="./images/figures/p038_fig10.25.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 10.25 — Free-frame list after compression</p>
 
 ---
 

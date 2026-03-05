@@ -170,8 +170,8 @@ Distinguishing two address spaces
 
 </div>
 
-<img src="./images/figures/p006_fig9.4.png" class="h-56 mx-auto" />
-<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.4 — Dynamic relocation using a relocation register</p>
+<img src="./images/figures/p007_fig9.5.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.5 — Dynamic relocation using a relocation register</p>
 
 - User programs use only logical addresses (0 ~ max)
 - The actual physical address is translated by the MMU
@@ -441,7 +441,7 @@ layout: section
 
 # Paging Overview
 
-<div class="text-left text-lg leading-10">
+<div class="text-left text-base leading-8">
 
 A technique that allocates a process's physical address space **non-contiguously**
 
@@ -451,10 +451,10 @@ A technique that allocates a process's physical address space **non-contiguously
 - **Completely eliminates** external fragmentation
 - Internal fragmentation occurs only in the last page (average 0.5 page)
 
-</div>
+<img src="./images/figures/p014_fig9.9.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.9 — Paging model of logical and physical memory</p>
 
-- Page size = Frame size (typically 4KB ~ 1GB, power of 2)
-- The OS manages physical memory allocation state using a **frame table**
+</div>
 
 ---
 
@@ -507,7 +507,7 @@ Logical address structure (page size = 2^n, address space = 2^m)
 <div class="text-left text-base leading-8">
 
 <img src="./images/figures/p015_fig9.10.png" class="h-56 mx-auto" />
-<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.10 — Paging model of logical and physical memory</p>
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.10 — Paging example for a 32-byte memory with 4-byte pages</p>
 
 </div>
 
@@ -1006,16 +1006,25 @@ layout: section
 
 # IA-32 Architecture (32-bit x86)
 
-<div class="text-left text-lg leading-10">
+<div class="text-left text-base leading-8">
 
 **Segmentation + Paging** combined approach
 
-</div>
-
-<img src="./images/figures/p031_fig9.21.png" class="h-56 mx-auto" />
+<img src="./images/figures/p031_fig9.21.png" class="h-24 mx-auto" />
 <p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.21 — Logical to physical address translation in IA-32</p>
 
-- When using 4MB pages: Page Directory directly points to a 4MB frame
+<div class="grid grid-cols-2 gap-2">
+<div>
+<img src="./images/figures/p032_fig9.22.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.22 — IA-32 segmentation</p>
+</div>
+<div>
+<img src="./images/figures/p033_fig9.23.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.23 — Paging in the IA-32</p>
+</div>
+</div>
+
+</div>
 
 ---
 
@@ -1056,23 +1065,19 @@ An extension that allows 32-bit processors to access more than 4GB of physical m
 
 # ARMv8 Architecture (64-bit ARM)
 
-<div class="text-left text-lg leading-10">
+<div class="text-left text-base leading-8">
 
 The most widely used 64-bit architecture in mobile/embedded systems
 
-</div>
-
-<img src="./images/figures/p036_fig9.26.png" class="h-56 mx-auto" />
+<img src="./images/figures/p036_fig9.26.png" class="h-16 mx-auto" />
 <p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.26 — ARM 4-KB translation granule</p>
 
-| Translation Granule | Page Size | Region Size |
-|-------------------|-----------|-------------|
-| 4 KB | 4 KB | 2 MB, 1 GB |
-| 16 KB | 16 KB | 32 MB |
-| 64 KB | 64 KB | 512 MB |
+<img src="./images/figures/p036_fig9.27.png" class="h-40 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 9.27 — ARM four-level hierarchical paging</p>
 
-- **2-level TLB**: micro TLB (instruction + data) + main TLB
-- ASID support
+</div>
+
+- **2-level TLB**: micro TLB (instruction + data) + main TLB; ASID support
 
 ---
 

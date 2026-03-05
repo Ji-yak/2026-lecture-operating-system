@@ -261,30 +261,23 @@ Preemptive scheduling is powerful but has **caveats**:
 
 # Dispatcher
 
-<div class="text-left text-lg leading-10">
+<div class="grid grid-cols-[1fr_1fr] gap-4">
+<div class="text-left text-base leading-8">
 
 **Dispatcher**: The module that actually hands over CPU control to the process selected by the Scheduler
-
-</div>
-
-```text
-┌──────────────┐                    ┌──────────────┐
-│   Process P0  │   save state      │   Process P1  │
-│   executing   │──── into PCB0 ──►│              │
-│              │                    │   restore    │
-│              │   dispatch         │   state from │
-│              │   latency          │   PCB1       │
-│              │◄──────────────────│   executing   │
-└──────────────┘                    └──────────────┘
-```
-
-<div class="text-left text-base leading-8">
 
 Three roles of the Dispatcher:
 1. Perform **context switch** (save current process state → restore new process state)
 2. Switch to **user mode**
 3. Jump to the appropriate location (**PC**) of the new process
 
+</div>
+<div>
+
+<img src="./images/figures/p005_fig5_3.png" class="h-72 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.3 — The role of the dispatcher</p>
+
+</div>
 </div>
 
 ---
@@ -792,28 +785,40 @@ Expanding the formula by repeated substitution:
 
 # Exponential Averaging — Calculation Example
 
-<div class="text-left text-lg leading-10">
+<div class="grid grid-cols-[1fr_1fr] gap-4">
+<div>
+
+<div class="text-left text-sm leading-6">
 
 Starting with α = 0.5, τ(0) = 10
 
+| n | t(n) | τ(n) | Calculation |
+|---|------|------|----------|
+| 0 | 6 | **10** | Initial value |
+| 1 | 4 | **8** | 0.5×6 + 0.5×10 |
+| 2 | 6 | **6** | 0.5×4 + 0.5×8 |
+| 3 | 4 | **6** | 0.5×6 + 0.5×6 |
+| 4 | 13 | **5** | 0.5×4 + 0.5×6 |
+| 5 | 13 | **9** | 0.5×13 + 0.5×5 |
+| 6 | 13 | **11** | 0.5×13 + 0.5×9 |
+| 7 | - | **12** | 0.5×13 + 0.5×11 |
+
 </div>
 
-| n | Actual burst t(n) | Predicted τ(n) | Calculation |
-|---|----------------|------------|----------|
-| 0 | 6 | **10** | Initial value |
-| 1 | 4 | **8** | 0.5×6 + 0.5×10 = 8 |
-| 2 | 6 | **6** | 0.5×4 + 0.5×8 = 6 |
-| 3 | 4 | **6** | 0.5×6 + 0.5×6 = 6 |
-| 4 | 13 | **5** | 0.5×4 + 0.5×6 = 5 |
-| 5 | 13 | **9** | 0.5×13 + 0.5×5 = 9 |
-| 6 | 13 | **11** | 0.5×13 + 0.5×9 = 11 |
-| 7 | - | **12** | 0.5×13 + 0.5×11 = 12 |
+</div>
+<div>
 
-<div class="text-left text-base leading-8">
+<img src="./images/figures/p010_fig5_4.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 5.4 — Prediction of the length of the next CPU burst</p>
+
+<div class="text-left text-sm leading-6 mt-2">
 
 - Even when the actual burst changes suddenly, the predicted value gradually follows
 - When the same value repeats consecutively, the prediction converges
 
+</div>
+
+</div>
 </div>
 
 ---

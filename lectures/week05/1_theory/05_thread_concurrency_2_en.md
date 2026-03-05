@@ -1298,29 +1298,32 @@ layout: section
 
 # Linux — clone() System Call
 
+<div class="grid grid-cols-[1fr_1fr] gap-4">
 <div class="text-left text-base leading-8">
 
 **clone()**: The system call for creating tasks in Linux
 - **Flags** determine the **level of sharing** between parent and child
 
-**Key flags** (Figure 4.22, textbook p.196):
-
-| Flag | Shared Resource |
-|------|----------------|
-| `CLONE_FS` | Filesystem information (current directory, etc.) |
-| `CLONE_VM` | Memory space (address space) |
-| `CLONE_SIGHAND` | Signal handlers |
-| `CLONE_FILES` | Open file list (file descriptors) |
-
-</div>
+**Usage pattern**:
 
 ```text
 fork() = clone(no flags)
-         → Nothing is shared (complete copy)
+  → Nothing shared (complete copy)
 
-thread = clone(CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND)
-         → Almost everything is shared (equivalent to thread creation)
+thread = clone(CLONE_VM | CLONE_FS
+  | CLONE_FILES | CLONE_SIGHAND)
+  → Almost everything shared
+    (= thread creation)
 ```
+
+</div>
+<div>
+
+<img src="./images/figures/fig4_22.png" class="h-56 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 4.22 — clone() flags</p>
+
+</div>
+</div>
 
 ---
 

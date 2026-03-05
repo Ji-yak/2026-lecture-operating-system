@@ -242,14 +242,8 @@ Key characteristics of NAND Flash semiconductors
 - Cannot directly overwrite an already-written page
 - Must erase at the block level first → then write is possible
 
-```text
-  Block (128~256 pages)
-  ┌─────┬─────┬─────┬─────┬─────┬───┐
-  │ P0  │ P1  │ P2  │ P3  │ P4  │...│
-  │valid│inval│valid│inval│valid│   │
-  └─────┴─────┴─────┴─────┴─────┴───┘
-  ↑ erase can only be done at the entire block level
-```
+<img src="./images/figures/p005_fig11.4.png" class="h-36 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.4 — A NAND block with valid and invalid pages</p>
 
 - Lifespan: approximately 100,000 program-erase cycles per cell (varies by product)
 - DWPD (Drive Writes Per Day): how many times the entire drive capacity can be written per day
@@ -839,23 +833,8 @@ System boot process
 2. Firmware reads the **boot block** (MBR/GPT) from the storage device
 3. The boot block code loads and executes the **OS kernel**
 
-```text
-  Power On → Firmware (BIOS/UEFI)
-                 ↓
-             Read Boot Block (MBR)
-                 ↓
-             ┌─────────────────────────┐
-             │ MBR                      │
-             │ ┌─────────┬────────────┐ │
-             │ │Boot Code│Partition   │ │
-             │ │         │Table       │ │
-             │ └─────────┴────────────┘ │
-             └─────────────────────────┘
-                 ↓
-             Read Boot Sector of Boot Partition
-                 ↓
-             Load and execute OS Kernel
-```
+<img src="./images/figures/p018_fig11.10.png" class="h-48 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.10 — Booting from a storage device in Windows</p>
 
 - **Boot disk (system disk):** a disk containing the boot partition
 - Default Linux bootstrap loader: **GRUB2**
@@ -978,20 +957,8 @@ Linux swap internal structure
 - Swap area is organized as an array of 4KB **page slots**
 - **Swap map**: an array of integer counters for each page slot
 
-```text
-  Swap Area:
-  ┌────────┬────────┬────────┬────────┬────────┐
-  │ Slot 0 │ Slot 1 │ Slot 2 │ Slot 3 │ Slot 4 │
-  └────────┴────────┴────────┴────────┴────────┘
-
-  Swap Map (counters):
-  ┌────┬────┬────┬────┬────┐
-  │  1 │  0 │  3 │  0 │  1 │
-  └────┴────┴────┴────┴────┘
-   used empty 3      empty used
-              processes
-              sharing
-```
+<img src="./images/figures/p022_fig11.11.png" class="h-36 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.11 — The data structures for swapping on Linux systems</p>
 
 | Counter Value | Meaning |
 |---------------|---------|
@@ -1068,14 +1035,8 @@ NAS characteristics:
 
 Connects servers and storage over a dedicated network
 
-```text
-  ┌────────┐     ┌─────────┐     ┌────────────────┐
-  │ Server │────→│   SAN   │────→│ Storage Array  │
-  │        │     │ Switch  │     │ (RAID protected)│
-  ├────────┤     │         │     ├────────────────┤
-  │ Server │────→│         │────→│ Storage Array  │
-  └────────┘     └─────────┘     └────────────────┘
-```
+<img src="./images/figures/p024_fig11.13.png" class="h-44 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.13 — Storage-area network</p>
 
 NAS vs SAN:
 
@@ -1382,27 +1343,8 @@ Difference from RAID 4: **parity is distributed across all disks**
 
 <div class="text-left text-base leading-8">
 
-**RAID 0+1:** Stripe then Mirror
-
-```text
-  Stripe Set A              Stripe Set B (Mirror)
-  ┌──────┬──────┐           ┌──────┬──────┐
-  │ D0:A1│ D1:A2│           │ D2:A1│ D3:A2│
-  │ D0:A3│ D1:A4│           │ D2:A3│ D3:A4│
-  └──────┴──────┘           └──────┴──────┘
-  1 disk failure → entire stripe becomes unavailable
-```
-
-**RAID 1+0 (RAID 10):** Mirror then Stripe
-
-```text
-  Mirror Pair 0    Mirror Pair 1
-  ┌──────┬──────┐  ┌──────┬──────┐
-  │ D0:A1│ D1:A1│  │ D2:A2│ D3:A2│
-  │ D0:A3│ D1:A3│  │ D2:A4│ D3:A4│
-  └──────┴──────┘  └──────┴──────┘
-  1 disk failure → only that pair's mirror is used, rest remains normal
-```
+<img src="./images/figures/p031_fig11.16.png" class="h-72 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.16 — RAID 0+1 and 1+0 with a single disk failure</p>
 
 **Why RAID 10 is preferable over RAID 0+1:**
 - Smaller blast radius on single disk failure
@@ -1478,12 +1420,8 @@ Difference from RAID 4: **parity is distributed across all disks**
 - Stores checksums for all blocks (data + metadata)
 - Checksums are stored in the **parent pointer**, not in the block itself
 
-```text
-  inode (contains checksum of data blocks)
-    ├── checksum D1 → Data Block 1
-    ├── checksum D2 → Data Block 2
-    └── checksum D3 → Data Block 3
-```
+<img src="./images/figures/p034_fig11.17.png" class="h-48 mx-auto" />
+<p class="text-xs text-gray-500 text-center">Silberschatz, Figure 11.17 — ZFS checksums all metadata and data</p>
 
 - Data corruption → checksum mismatch → automatically detected
 - If a mirror exists, automatically recovers from the intact copy
