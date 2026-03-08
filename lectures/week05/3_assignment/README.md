@@ -3,6 +3,8 @@
 > Textbook reference: xv6 textbook Ch 6 (Locking), Ch 9 (Concurrency Revisited)
 >
 > Deadline: Before the next class
+>
+> **Environment**: Assignment 1 (kalloc) requires xv6-riscv — see [Week 2 setup guide](../../week02/2_lab/setup_xv6_env.md). Assignment 2 (barrier) runs locally with gcc.
 
 ---
 

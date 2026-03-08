@@ -38,5 +38,6 @@
 ## Materials
 - Theory: `1_theory/02_process_1_en.md`
 - Lab: `2_lab/README.md`, `2_lab/examples/`
-- Homework: `2_lab/homework/` — Ping-pong, Minishell (skeleton + tests)
+- Environment Setup: `2_lab/setup_xv6_env.md` — xv6 build environment (macOS / Ubuntu / Windows WSL2)
+- Homework: `3_assignment/` — Ping-pong, Minishell (skeleton + tests)
 - Quiz: None

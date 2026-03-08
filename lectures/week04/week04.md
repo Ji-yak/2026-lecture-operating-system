@@ -38,5 +38,5 @@
 ## Materials
 - Theory: `1_theory/04_thread_concurrency_1_en.md`
 - Lab: `2_lab/README.md`, `2_lab/examples/` (4 demos)
-- Homework: `2_lab/homework/` — Parallel hash table (skeleton + tests)
+- Homework: `3_assignment/` — Parallel hash table (skeleton + tests)
 - Quiz: Yes (10 min, beginning of 1st hour)

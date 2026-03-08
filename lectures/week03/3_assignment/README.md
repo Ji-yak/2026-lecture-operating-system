@@ -3,6 +3,7 @@
 > **Deadline**: Before the next class
 > **Based on**: MIT 6.1810 Lab: System Calls
 > **Difficulty**: Required (trace) + Bonus (sysinfo)
+> **Environment**: xv6-riscv (QEMU + RISC-V toolchain required — see [Week 2 setup guide](../../week02/2_lab/setup_xv6_env.md))
 
 ---
 

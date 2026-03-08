@@ -36,5 +36,5 @@
 ## Materials
 - Theory: `1_theory/03_process_2_en.md`
 - Lab: `2_lab/README.md`
-- Homework: `2_lab/homework/` — trace syscall (patch + tests)
+- Homework: `3_assignment/` — trace syscall (patch + tests)
 - Quiz: Yes (10 min, beginning of 1st hour)

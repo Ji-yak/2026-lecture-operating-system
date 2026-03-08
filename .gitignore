@@ -11,6 +11,9 @@ package-lock.json
 **/script_en.md
 **/script_ko.md
 
+# Assignment solutions (private)
+**/3_assignment/solution/
+
 # Quiz (private)
 quiz/
 **/0_quiz/*

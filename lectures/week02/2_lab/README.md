@@ -29,6 +29,8 @@ gcc --version
 cd week2/lab/examples/
 ```
 
+> **xv6 Environment Setup**: Starting from Week 3, you will need QEMU and the RISC-V toolchain to build and run xv6. See **[setup_xv6_env.md](setup_xv6_env.md)** for installation instructions (macOS / Ubuntu / Windows WSL2).
+
 ---
 
 ## Lab 1: fork() and wait() Basics (~12 min)

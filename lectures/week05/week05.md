@@ -36,5 +36,5 @@
 ## Materials
 - Theory: `1_theory/05_thread_concurrency_2_en.md`
 - Lab: `2_lab/README.md`, `2_lab/examples/` (2 examples)
-- Homework: `2_lab/homework/` — kalloc Per-CPU + barrier (skeleton + tests)
+- Homework: `3_assignment/` — kalloc Per-CPU + barrier (skeleton + tests)
 - Quiz: Yes (10 min, beginning of 1st hour)

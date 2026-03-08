@@ -39,5 +39,5 @@
 ## Materials
 - Theory: `1_theory/06_cpu_scheduling_1_en.md`
 - Lab: `2_lab/README.md`, `2_lab/scheduler_trace.patch`
-- Homework: `2_lab/homework/` — User-level Thread (skeleton + 12 tests)
+- Homework: `3_assignment/` — User-level Thread (skeleton + 12 tests)
 - Quiz: Yes (10 min, beginning of 1st hour)
