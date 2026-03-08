@@ -26,7 +26,7 @@ The combination of these four system calls is the core principle behind the Unix
 gcc --version
 
 # Navigate to the lab directory
-cd week2/lab/examples/
+cd examples/
 ```
 
 > **xv6 Environment Setup**: Starting from Week 3, you will need QEMU and the RISC-V toolchain to build and run xv6. See **[setup_xv6_env.md](setup_xv6_env.md)** for installation instructions (macOS / Ubuntu / Windows WSL2).
@@ -329,4 +329,4 @@ By combining the system calls learned in this lab, you will implement the follow
 1. **pingpong**: A bidirectional communication program using pipes
 2. **minishell**: A simple shell combining fork + exec + wait + pipe + dup2
 
-See `week2/homework/README.md` for the homework specification.
+See `../3_assignment/README.md` for the homework specification.
