@@ -58,8 +58,8 @@ Before fork():          After fork():
 **Step 1**: Compile and run the example code.
 
 ```bash
-gcc -Wall -o fork_basic fork_basic.c
-./fork_basic
+gcc -Wall -o lab1_fork_basic lab1_fork_basic.c
+./lab1_fork_basic
 ```
 
 **Step 2**: Observe the output and answer the following questions.
@@ -70,7 +70,7 @@ gcc -Wall -o fork_basic fork_basic.c
 
 **Step 3**: Try modifying it yourself
 
-Modify `fork_basic.c` so that 5 child processes are created. Have each child exit with a different exit code (0~4), and have the parent print all the exit codes.
+Modify `lab1_fork_basic.c` so that 5 child processes are created. Have each child exit with a different exit code (0~4), and have the parent print all the exit codes.
 
 ### Key Summary
 
@@ -117,8 +117,8 @@ Naming convention for the exec family functions:
 **Step 1**: Compile and run the example code.
 
 ```bash
-gcc -Wall -o exec_example exec_example.c
-./exec_example
+gcc -Wall -o lab2_exec_example lab2_exec_example.c
+./lab2_exec_example
 ```
 
 **Step 2**: Observe the output and answer the following questions.
@@ -129,7 +129,7 @@ gcc -Wall -o exec_example exec_example.c
 
 **Step 3**: Try modifying it yourself
 
-Add a new demo to `exec_example.c`: use `execvp` to run `grep` and search for a pattern in a specific file.
+Add a new demo to `lab2_exec_example.c`: use `execvp` to run `grep` and search for a pattern in a specific file.
 
 ```c
 // Hint: Run "grep" "pattern" "filename" using execvp
@@ -175,8 +175,8 @@ Important rules:
 **Step 1**: Compile and run the example code.
 
 ```bash
-gcc -Wall -o pipe_example pipe_example.c
-./pipe_example
+gcc -Wall -o lab3_pipe_example lab3_pipe_example.c
+./lab3_pipe_example
 ```
 
 **Step 2**: Observe the output and answer the following questions.
@@ -249,8 +249,8 @@ Implementing the shell's "echo hello > output.txt":
 **Step 1**: Compile and run the example code.
 
 ```bash
-gcc -Wall -o redirect redirect.c
-./redirect
+gcc -Wall -o lab4_redirect lab4_redirect.c
+./lab4_redirect
 ```
 
 **Step 2**: Observe the output and answer the following questions.

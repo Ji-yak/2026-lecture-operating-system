@@ -350,7 +350,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 
 ### Question 2-1: Manual Address Translation
 
-Use the helper Python script (`examples/va_translate.py`) or calculate manually to solve the following.
+Use the helper Python script (`examples/lab2_va_translate.py`) or calculate manually to solve the following.
 
 **For virtual address `0x0000000080001234`:**
 
@@ -440,7 +440,7 @@ Write a `vmprint()` function that prints the contents of a process's 3-level pag
 
 ### Implementation Guide
 
-The implementation code is in the `examples/vmprint.c` file. Add this code to `kernel/vm.c`.
+The implementation code is in the `examples/lab3_vmprint.c` file. Add this code to `kernel/vm.c`.
 
 **Output format:**
 ```
@@ -461,7 +461,7 @@ page table 0x0000000087f6b000
 
 ### Step 1: Add vmprint() to kernel/vm.c
 
-Add the code from the `examples/vmprint.c` file to the end of the `kernel/vm.c` file.
+Add the code from the `examples/lab3_vmprint.c` file to the end of the `kernel/vm.c` file.
 
 ```c
 // Recursive helper function for printing page tables

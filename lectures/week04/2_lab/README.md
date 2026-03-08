@@ -19,10 +19,10 @@ Through this lab, you will understand:
 cd examples/
 
 # Compile all examples at once
-gcc -Wall -pthread -o race_demo race_demo.c
-gcc -Wall -pthread -o mutex_fix mutex_fix.c
-gcc -Wall -pthread -o spinlock_impl spinlock_impl.c
-gcc -Wall -pthread -o deadlock_demo deadlock_demo.c
+gcc -Wall -pthread -o lab1_race_demo lab1_race_demo.c
+gcc -Wall -pthread -o lab2_mutex_fix lab2_mutex_fix.c
+gcc -Wall -pthread -o lab3_spinlock_impl lab3_spinlock_impl.c
+gcc -Wall -pthread -o lab4_deadlock_demo lab4_deadlock_demo.c
 ```
 
 ---
@@ -47,14 +47,14 @@ As a result, what should have been an increase of 2 only increases by 1.
 
 ```bash
 # Default run: 4 threads, 1,000,000 increments each
-./race_demo
+./lab1_race_demo
 
 # Try changing the number of threads
-./race_demo 2 1000000
-./race_demo 8 1000000
+./lab1_race_demo 2 1000000
+./lab1_race_demo 8 1000000
 
 # Run multiple times to see if the result varies each time
-for i in 1 2 3 4 5; do ./race_demo 4 1000000; echo "---"; done
+for i in 1 2 3 4 5; do ./lab1_race_demo 4 1000000; echo "---"; done
 ```
 
 ### Checklist
@@ -81,27 +81,27 @@ Protecting the critical section with `pthread_mutex_t` ensures only one thread e
 
 ```bash
 # Run the mutex version
-./mutex_fix
+./lab2_mutex_fix
 
-# Compare with the same parameters as race_demo
-./mutex_fix 4 1000000
-./mutex_fix 8 1000000
+# Compare with the same parameters as lab1_race_demo
+./lab2_mutex_fix 4 1000000
+./lab2_mutex_fix 8 1000000
 ```
 
 ### Code Comparison
 
-Open `race_demo.c` and `mutex_fix.c` side by side to compare the differences:
+Open `lab1_race_demo.c` and `lab2_mutex_fix.c` side by side to compare the differences:
 
 ```bash
-diff race_demo.c mutex_fix.c
+diff lab1_race_demo.c lab2_mutex_fix.c
 ```
 
 Key difference:
 ```c
-// race_demo.c (no protection)
+// lab1_race_demo.c (no protection)
 counter++;
 
-// mutex_fix.c (protected with mutex)
+// lab2_mutex_fix.c (protected with mutex)
 pthread_mutex_lock(&lock);
 counter++;
 pthread_mutex_unlock(&lock);
@@ -150,16 +150,16 @@ If the previous value was 0, the lock has been acquired; if 1, another thread ho
 
 ```bash
 # Run the spinlock version
-./spinlock_impl
+./lab3_spinlock_impl
 
 # Compare with the mutex version
-time ./mutex_fix 4 1000000
-time ./spinlock_impl 4 1000000
+time ./lab2_mutex_fix 4 1000000
+time ./lab3_spinlock_impl 4 1000000
 ```
 
 ### Code Analysis
 
-Open `spinlock_impl.c` and analyze the following functions:
+Open `lab3_spinlock_impl.c` and analyze the following functions:
 
 - `spinlock_init()`: Lock initialization
 - `spinlock_acquire()`: Uses `__sync_lock_test_and_set`
@@ -200,7 +200,7 @@ In this example:
 
 ```bash
 # Deadlock demo (program may hang, terminate with Ctrl+C)
-./deadlock_demo
+./lab4_deadlock_demo
 
 # Run multiple times to observe deadlock occurrence
 # (may not occur every time - depends on timing)
@@ -211,10 +211,10 @@ In this example:
 If the program hangs, a deadlock has occurred. Check from another terminal:
 ```bash
 # macOS
-ps aux | grep deadlock_demo
+ps aux | grep lab4_deadlock_demo
 
 # Force kill
-kill -9 $(pgrep deadlock_demo)
+kill -9 $(pgrep lab4_deadlock_demo)
 ```
 
 ### Solution
@@ -232,7 +232,7 @@ The simplest way to prevent deadlock: **All threads acquire locks in the same or
 
 ### Challenge (Optional)
 
-Modify `deadlock_demo.c` to:
+Modify `lab4_deadlock_demo.c` to:
 1. Change Thread B's lock acquisition order to match Thread A's
 2. Verify that deadlock no longer occurs after the modification
 

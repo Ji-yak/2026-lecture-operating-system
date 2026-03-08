@@ -121,7 +121,7 @@ Role of each region:
 | Data blocks | 46 ~ 1999 | Actual file data |
 
 > **Note**: For the exact block ranges, check the values output when running `mkfs`.
-> You can visually verify them by running `examples/disk_layout.py`.
+> You can visually verify them by running `examples/lab4_disk_layout.py`.
 
 ### Key Data Structures
 
@@ -675,13 +675,13 @@ The flow when writing data to a file:
 > `(10-1-1-2)/2 = 3`, and only `3 * 1024 = 3072 bytes` can be written at once.
 > Large files are written across multiple transactions.
 
-### 3-5. Lab Exercise: fs_trace Program
+### 3-5. Lab Exercise: lab3_fs_trace Program
 
-`examples/fs_trace.c` is an xv6 user program that prints the file creation/write/read
+`examples/lab3_fs_trace.c` is an xv6 user program that prints the file creation/write/read
 process step by step. Run it in xv6 to observe each step.
 
 ```
-$ fs_trace
+$ lab3_fs_trace
 ```
 
 Read the source code of this program and map each system call to the code paths

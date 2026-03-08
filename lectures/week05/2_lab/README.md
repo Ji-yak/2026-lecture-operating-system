@@ -42,11 +42,11 @@ Key conditions:
 
 ```bash
 cd examples/
-gcc -Wall -pthread -o producer_consumer producer_consumer.c
-./producer_consumer
+gcc -Wall -pthread -o lab1_producer_consumer lab1_producer_consumer.c
+./lab1_producer_consumer
 ```
 
-2. Open `producer_consumer.c` and focus on the following sections:
+2. Open `lab1_producer_consumer.c` and focus on the following sections:
 
 #### (a) `buffer_put` Function - Producer Operation
 
@@ -106,11 +106,11 @@ int buffer_get(bounded_buffer_t *buf) {
 1. Compile and run:
 
 ```bash
-gcc -Wall -pthread -o bounded_buffer bounded_buffer.c
-./bounded_buffer
+gcc -Wall -pthread -o lab2_bounded_buffer lab2_bounded_buffer.c
+./lab2_bounded_buffer
 ```
 
-2. `bounded_buffer.c` has **3 Producers + 3 Consumers** operating concurrently. Observe the following:
+2. `lab2_bounded_buffer.c` has **3 Producers + 3 Consumers** operating concurrently. Observe the following:
 
 - Since the buffer size is only 4, waiting occurs frequently
 - Verify that all items are produced/consumed exactly once

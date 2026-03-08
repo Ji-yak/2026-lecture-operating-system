@@ -2,8 +2,45 @@
 """
 va_translate.py - RISC-V Sv39 가상 주소 변환 시각화 도구
 
+[개요]
 이 스크립트는 RISC-V Sv39 방식의 가상 주소를 입력받아
-3단계 페이지 테이블 인덱스와 페이지 오프셋으로 분해합니다.
+3단계 페이지 테이블 워크(page table walk) 과정을 시각적으로 보여줍니다.
+
+[핵심 개념: Sv39 페이지 테이블 구조]
+RISC-V의 Sv39 방식은 39비트 가상 주소를 사용하며, 3단계 페이지 테이블로 변환합니다.
+
+  가상 주소 (39비트):
+    +----------+----------+----------+--------------+
+    | VPN[2]   | VPN[1]   | VPN[0]   | Page Offset  |
+    | (9 bits) | (9 bits) | (9 bits) | (12 bits)    |
+    +----------+----------+----------+--------------+
+    비트 38~30   비트 29~21  비트 20~12   비트 11~0
+
+  3단계 페이지 테이블 워크:
+    1) satp 레지스터에서 L2(루트) 페이지 테이블의 물리 주소를 읽음
+    2) L2 테이블에서 VPN[2]를 인덱스로 PTE를 찾고, PPN을 추출하여 L1 테이블 위치를 결정
+    3) L1 테이블에서 VPN[1]을 인덱스로 PTE를 찾고, PPN을 추출하여 L0 테이블 위치를 결정
+    4) L0 테이블에서 VPN[0]을 인덱스로 PTE를 찾고, PPN을 추출하여 물리 페이지 시작 주소를 결정
+    5) 물리 페이지 시작 주소 + Page Offset = 최종 물리 주소
+
+  PTE (Page Table Entry) 구조 (64비트):
+    비트 63~54: 예약
+    비트 53~10: PPN (Physical Page Number) - 다음 레벨 테이블 또는 물리 페이지의 주소
+    비트  9~ 8: RSW (소프트웨어 예약)
+    비트  7: D (Dirty) - 페이지에 쓰기가 발생했는지 여부
+    비트  6: A (Accessed) - 페이지에 접근이 발생했는지 여부
+    비트  5: G (Global) - 전역 매핑 여부
+    비트  4: U (User) - 사용자 모드에서 접근 가능 여부
+    비트  3: X (eXecute) - 실행 가능 여부
+    비트  2: W (Write) - 쓰기 가능 여부
+    비트  1: R (Read) - 읽기 가능 여부
+    비트  0: V (Valid) - PTE가 유효한지 여부
+
+  xv6의 PX 매크로 (kernel/riscv.h):
+    #define PX(level, va)  ((((uint64)(va)) >> (PGSHIFT + 9*(level))) & 0x1FF)
+    - PX(2, va): VPN[2] 추출 (L2 인덱스)
+    - PX(1, va): VPN[1] 추출 (L1 인덱스)
+    - PX(0, va): VPN[0] 추출 (L0 인덱스)
 
 사용법:
     python3 va_translate.py                 # 대화형 모드
@@ -17,20 +54,26 @@ import sys
 # ============================================================
 # Sv39 상수 정의
 # ============================================================
-PGSIZE = 4096           # 4KB 페이지
-PGSHIFT = 12            # 오프셋 비트 수
-LEVELS = 3              # 3단계 페이지 테이블
-PTE_BITS = 9            # 각 레벨 인덱스 비트 수
-MAXVA = 1 << 38         # xv6에서 사용하는 최대 VA (bit 38 미사용)
+# Sv39에서 페이지 크기는 4KB (2^12 = 4096 bytes)
+# 각 페이지 테이블은 512개의 PTE를 포함 (2^9 = 512, 각 PTE는 8바이트)
+# 따라서 하나의 페이지 테이블 자체도 정확히 한 페이지 크기 (512 * 8 = 4096)
+PGSIZE = 4096           # 4KB 페이지 크기
+PGSHIFT = 12            # 페이지 오프셋 비트 수 (log2(4096) = 12)
+LEVELS = 3              # 3단계 페이지 테이블 (L2 -> L1 -> L0)
+PTE_BITS = 9            # 각 레벨의 인덱스 비트 수 (log2(512) = 9)
+MAXVA = 1 << 38         # xv6에서 사용하는 최대 VA (비트 38은 사용하지 않음)
+                        # 참고: Sv39는 비트 38~0 총 39비트를 사용하지만,
+                        # xv6는 MAXVA를 1<<38로 정의하여 비트 38을 미사용
 
-# xv6 메모리 레이아웃 상수
-KERNBASE   = 0x80000000
-PHYSTOP    = KERNBASE + 128 * 1024 * 1024   # 0x88000000
-UART0      = 0x10000000
-VIRTIO0    = 0x10001000
-PLIC       = 0x0C000000
-TRAMPOLINE = MAXVA - PGSIZE                  # 최상위 페이지
-TRAPFRAME  = TRAMPOLINE - PGSIZE
+# xv6 메모리 레이아웃 상수 (kernel/memlayout.h 참조)
+# xv6 커널은 가상 주소 = 물리 주소인 직접 매핑(direct mapping)을 사용
+KERNBASE   = 0x80000000                     # 커널 코드/데이터 시작 주소 (DRAM 시작)
+PHYSTOP    = KERNBASE + 128 * 1024 * 1024   # 물리 메모리 끝 (0x88000000, 128MB)
+UART0      = 0x10000000                     # 시리얼 포트 I/O 장치 주소
+VIRTIO0    = 0x10001000                     # VirtIO 디스크 장치 주소
+PLIC       = 0x0C000000                     # 플랫폼 인터럽트 컨트롤러 주소
+TRAMPOLINE = MAXVA - PGSIZE                 # 트램폴린 페이지 (VA 최상위, 커널/유저 공유)
+TRAPFRAME  = TRAMPOLINE - PGSIZE            # 트랩프레임 (트랩 시 레지스터 저장용)
 
 
 def extract_fields(va):
@@ -57,7 +100,14 @@ def format_binary(value, bits):
 
 
 def identify_region(va):
-    """xv6에서 이 가상 주소가 어떤 영역에 해당하는지 판별합니다."""
+    """
+    xv6에서 이 가상 주소가 어떤 영역에 해당하는지 판별합니다.
+
+    xv6 커널 주소 공간은 대부분 직접 매핑(VA == PA)을 사용합니다.
+    예외: TRAMPOLINE과 TRAPFRAME은 가상 주소 최상위에 매핑되어 있으며,
+          실제 물리 주소와 다릅니다 (TRAMPOLINE은 커널 코드 내 trampoline.S,
+          TRAPFRAME은 프로세스별로 할당된 물리 페이지).
+    """
     if va >= TRAMPOLINE and va < TRAMPOLINE + PGSIZE:
         return "TRAMPOLINE (트랩 핸들러 코드)"
     elif va >= TRAPFRAME and va < TRAPFRAME + PGSIZE:
@@ -178,7 +228,13 @@ def print_translation(va):
 
 
 def print_example_table():
-    """자주 사용되는 xv6 주소 예제를 출력합니다."""
+    """
+    자주 사용되는 xv6 주소 예제를 출력합니다.
+
+    각 주소에 대해 VPN[2], VPN[1], VPN[0], Offset을 계산하여
+    3단계 페이지 테이블 워크에서 어떤 인덱스가 사용되는지 보여줍니다.
+    이를 통해 xv6의 메모리 레이아웃과 페이지 테이블 구조의 관계를 이해할 수 있습니다.
+    """
     print()
     print("=" * 72)
     print("  xv6 주요 가상 주소 예제")
@@ -208,7 +264,13 @@ def print_example_table():
 
 
 def interactive_mode():
-    """대화형 모드로 가상 주소를 입력받습니다."""
+    """
+    대화형 모드로 가상 주소를 입력받습니다.
+
+    사용자가 16진수(0x...) 또는 10진수 형태의 가상 주소를 입력하면,
+    Sv39 방식으로 분해하여 3단계 페이지 테이블 워크 과정을 출력합니다.
+    'q', 'quit', 'exit' 또는 Ctrl+C로 종료할 수 있습니다.
+    """
     print()
     print("=" * 72)
     print("  RISC-V Sv39 가상 주소 변환 도구")
@@ -247,8 +309,12 @@ def interactive_mode():
 
 
 def main():
+    """
+    메인 함수: 명령줄 인자가 있으면 해당 주소를 변환하고,
+    없으면 대화형 모드로 진입합니다.
+    """
     if len(sys.argv) > 1:
-        # 명령줄 인자 모드
+        # 명령줄 인자 모드: 각 인자를 가상 주소로 파싱하여 변환
         for arg in sys.argv[1:]:
             try:
                 if arg.startswith('0x') or arg.startswith('0X'):

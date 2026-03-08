@@ -57,7 +57,7 @@ Directly observe a program hanging due to an actual deadlock.
 
 ### Code Analysis
 
-Open and read the code in `examples/deadlock_demo.c`.
+Open and read the code in `examples/lab1_deadlock_demo.c`.
 
 ```c
 /* Thread 1: Lock A first, then try to lock B */
@@ -85,13 +85,13 @@ void *thread2_func(void *arg)
 
 ```bash
 cd practice/week10/lab/examples
-gcc -Wall -pthread -o deadlock_demo deadlock_demo.c
+gcc -Wall -pthread -o lab1_deadlock_demo lab1_deadlock_demo.c
 ```
 
 **Step 2: Run**
 
 ```bash
-./deadlock_demo
+./lab1_deadlock_demo
 ```
 
 Confirm that the program hangs. Wait about 10 seconds and then terminate with `Ctrl+C`.
@@ -142,7 +142,7 @@ This way, while Thread 2 is waiting to acquire A, Thread 1 can use both A and B,
 
 **Step 1: Code Analysis**
 
-Open `examples/deadlock_fix_ordering.c` and compare the two thread functions.
+Open `examples/lab2_deadlock_fix_ordering.c` and compare the two thread functions.
 
 Key change (in `thread2_func`):
 ```c
@@ -158,8 +158,8 @@ pthread_mutex_lock(&mutex_B);  // B second
 **Step 2: Compile and Run**
 
 ```bash
-gcc -Wall -pthread -o deadlock_fix_ordering deadlock_fix_ordering.c
-./deadlock_fix_ordering
+gcc -Wall -pthread -o lab2_deadlock_fix_ordering lab2_deadlock_fix_ordering.c
+./lab2_deadlock_fix_ordering
 ```
 
 **Step 3: Verify**
@@ -203,7 +203,7 @@ Thread 1:
 
 **Step 1: Code Analysis**
 
-Read the core logic of `thread1_func` in `examples/deadlock_fix_trylock.c`:
+Read the core logic of `thread1_func` in `examples/lab3_deadlock_fix_trylock.c`:
 
 ```c
 while (!success) {
@@ -224,8 +224,8 @@ while (!success) {
 **Step 2: Compile and Run**
 
 ```bash
-gcc -Wall -pthread -o deadlock_fix_trylock deadlock_fix_trylock.c
-./deadlock_fix_trylock
+gcc -Wall -pthread -o lab3_deadlock_fix_trylock lab3_deadlock_fix_trylock.c
+./lab3_deadlock_fix_trylock
 ```
 
 **Step 3: Output Analysis**
@@ -498,9 +498,9 @@ Additionally, the `holding(lk)` check detects programming errors where the same 
 | Condition | Solution | Example in this lab |
 |-----------|----------|---------------------|
 | Mutual Exclusion | (Generally cannot be removed) | - |
-| Hold & Wait | trylock + back-off | Exercise 3: `deadlock_fix_trylock.c` |
+| Hold & Wait | trylock + back-off | Exercise 3: `lab3_deadlock_fix_trylock.c` |
 | No Preemption | (Generally cannot be removed) | - |
-| Circular Wait | **Lock ordering** | Exercise 2: `deadlock_fix_ordering.c` |
+| Circular Wait | **Lock ordering** | Exercise 2: `lab2_deadlock_fix_ordering.c` |
 
 ### xv6's Deadlock Prevention Strategies
 

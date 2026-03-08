@@ -295,7 +295,7 @@ Write an xv6 user program that implements the producer-consumer pattern using pi
 
 ### 3.2 Writing the Code
 
-Refer to the `examples/producer_consumer.c` file. Below is the core structure:
+Refer to the `examples/lab3_producer_consumer.c` file. Below is the core structure:
 
 ```c
 #include "kernel/types.h"
@@ -339,7 +339,7 @@ main(int argc, char *argv[])
 
 ### Lab Steps
 
-**Step 1**: Read and understand the full code in the `examples/producer_consumer.c` file.
+**Step 1**: Read and understand the full code in the `examples/lab3_producer_consumer.c` file.
 
 **Step 2**: Add this program to xv6 and run it.
 
@@ -347,14 +347,14 @@ To add a new user program to xv6:
 
 1. Copy the source file to the `user/` directory:
    ```
-   cp practice/week9/lab/examples/producer_consumer.c user/producer_consumer.c
+   cp practice/week9/lab/examples/lab3_producer_consumer.c user/lab3_producer_consumer.c
    ```
 
 2. Add it to the `UPROGS` list in the `Makefile`:
    ```makefile
    UPROGS=\
        ...
-       $U/_producer_consumer\
+       $U/_lab3_producer_consumer\
    ```
 
 3. Build and run xv6:
@@ -364,7 +364,7 @@ To add a new user program to xv6:
 
 4. Run it in the xv6 shell:
    ```
-   $ producer_consumer
+   $ lab3_producer_consumer
    ```
 
 **Step 3**: Observe the output.
@@ -521,12 +521,12 @@ Time  Reader (CPU 0)                    Writer (CPU 1)
 
 > sleep receives the condition lock and ensures that the transition to SLEEPING state and the lock release happen atomically. This prevents wakeup from being lost in the gap between "checking the condition" and "going to sleep."
 
-**Q4-2.** Run the `examples/wakeup_demo.c` program to observe blocking/wakeup behavior through pipes.
+**Q4-2.** Run the `examples/lab1_wakeup_demo.c` program to observe blocking/wakeup behavior through pipes.
 
 The steps to add it to xv6 are the same as Exercise 3:
 1. Copy the source file to the `user/` directory
-2. Add `$U/_wakeup_demo\` to `UPROGS` in the Makefile
-3. Run `make clean && make qemu` and then execute `wakeup_demo` in the xv6 shell
+2. Add `$U/_lab1_wakeup_demo\` to `UPROGS` in the Makefile
+3. Run `make clean && make qemu` and then execute `lab1_wakeup_demo` in the xv6 shell
 
 ---
 

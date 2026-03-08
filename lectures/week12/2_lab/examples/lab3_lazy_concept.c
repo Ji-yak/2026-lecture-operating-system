@@ -1,11 +1,37 @@
 /*
- * lazy_concept.c - Lazy Allocation 동작을 관찰하는 프로그램
+ * lazy_concept.c - Lazy Allocation (Demand Paging) 동작을 관찰하는 프로그램
  *
+ * [개요]
  * mmap(MAP_ANONYMOUS)으로 대용량 메모리를 할당한 후,
- * 실제로 페이지에 접근할 때마다 물리 메모리가 할당되는 과정을 관찰한다.
+ * 실제로 페이지에 접근할 때마다 물리 메모리가 할당되는 과정을 관찰합니다.
  *
- * 컴파일: gcc -Wall -o lazy_concept lazy_concept.c
- * 실행:   ./lazy_concept
+ * [Lazy Allocation / Demand Paging의 핵심 개념]
+ *
+ * 1) 지연 할당 (Lazy Allocation):
+ *    - 프로세스가 메모리를 요청(sbrk/mmap)하면, 가상 주소 공간만 확장하고
+ *      실제 물리 페이지는 즉시 할당하지 않음
+ *    - 가상 주소 범위만 기록하고, PTE는 생성하지 않음 (또는 Valid 비트 미설정)
+ *    - 프로세스가 해당 주소에 실제로 접근할 때 page fault가 발생하면 그제서야
+ *      물리 페이지를 할당하고 PTE를 설정함
+ *
+ * 2) xv6에서의 Lazy Allocation 구현 위치:
+ *    - kernel/sysproc.c의 sys_sbrk(): 크기만 증가시키고 물리 페이지 할당을 생략
+ *      (기존: growproc() 호출 -> 변경: p->sz만 증가)
+ *    - kernel/trap.c의 usertrap(): scause == 13(load) 또는 15(store) page fault 처리
+ *      a) page fault 주소(stval)가 유효한 범위(0 ~ p->sz)인지 확인
+ *      b) kalloc()으로 새 물리 페이지 할당
+ *      c) memset(mem, 0, PGSIZE)로 보안을 위해 0으로 초기화
+ *      d) mappages()로 PTE 생성 (VA -> PA 매핑)
+ *    - kernel/vm.c의 uvmunmap(): lazy로 인해 매핑되지 않은 페이지를 unmap할 때
+ *      PTE가 없어도 panic하지 않도록 수정 필요
+ *
+ * 3) Lazy Allocation의 장점:
+ *    - 실제로 사용하는 메모리만 물리 페이지를 소비 (메모리 효율)
+ *    - sbrk/mmap 호출이 즉시 완료 (지연 없음)
+ *    - 프로세스가 큰 메모리를 요청하되 일부만 사용하는 패턴에서 효과적
+ *
+ * 컴파일: gcc -Wall -o lab3_lazy_concept lab3_lazy_concept.c
+ * 실행:   ./lab3_lazy_concept
  */
 
 #include <stdio.h>
@@ -16,10 +42,11 @@
 #include <sys/resource.h>
 #include <time.h>
 
-#define PAGE_SIZE     4096
-#define TOTAL_PAGES   8192       /* 할당할 페이지 수 */
-#define REGION_SIZE   ((size_t)TOTAL_PAGES * PAGE_SIZE)  /* 총 32MB */
-#define TOUCH_STEP    512        /* 측정 간격 (페이지 수) */
+/* 실험에 사용할 메모리 크기 설정 */
+#define PAGE_SIZE     4096                                /* 페이지 크기 (4KB) */
+#define TOTAL_PAGES   8192                                /* 할당할 페이지 수 (8192 페이지) */
+#define REGION_SIZE   ((size_t)TOTAL_PAGES * PAGE_SIZE)   /* 총 32MB (8192 * 4KB) */
+#define TOUCH_STEP    512                                 /* 측정 간격: 512페이지마다 통계 출력 */
 
 /*
  * get_rss_kb - 현재 프로세스의 RSS(Resident Set Size)를 KB 단위로 반환한다.
@@ -81,7 +108,13 @@ static void demo_lazy_basic(void)
     long faults_before = get_minor_faults();
     long rss_before = get_rss_kb();
 
-    /* mmap으로 큰 영역 할당 - 이 시점에서는 물리 메모리를 사용하지 않음 */
+    /* mmap으로 큰 영역 할당 - 이 시점에서는 물리 메모리를 사용하지 않음
+     * 커널은 가상 주소 공간의 범위만 기록 (VMA: Virtual Memory Area)
+     * 실제 물리 페이지는 할당하지 않고, PTE도 생성하지 않음
+     * 이것이 "lazy allocation"의 핵심: 할당 요청과 실제 할당을 분리
+     *
+     * xv6에서의 대응: sys_sbrk()에서 p->sz만 증가시키고
+     * growproc()/uvmalloc() 호출을 생략하는 것과 동일한 원리 */
     region = mmap(NULL, REGION_SIZE,
                   PROT_READ | PROT_WRITE,
                   MAP_PRIVATE | MAP_ANONYMOUS,
@@ -115,7 +148,15 @@ static void demo_lazy_basic(void)
     long prev_faults = get_minor_faults();
 
     for (i = 0; i < TOTAL_PAGES; i++) {
-        /* 각 페이지의 첫 바이트에 쓰기 -> 이때 page fault 발생 */
+        /* 각 페이지의 첫 바이트에 쓰기 -> 이때 page fault 발생
+         * page fault 처리 과정 (커널 내부):
+         *   1. 하드웨어가 page fault 예외를 발생시킴
+         *   2. 커널의 page fault 핸들러가 호출됨
+         *   3. fault 주소가 유효한 VMA 범위 내인지 확인
+         *   4. 물리 페이지를 할당 (kalloc에 해당)
+         *   5. 0으로 초기화 (보안: 이전 프로세스 데이터 유출 방지)
+         *   6. PTE를 생성하여 VA -> PA 매핑 설정
+         *   7. 프로세스 재개 (쓰기 명령을 재시도) */
         region[(size_t)i * PAGE_SIZE] = (char)(i & 0xFF);
 
         if ((i + 1) % TOUCH_STEP == 0) {
@@ -150,6 +191,12 @@ static void demo_lazy_basic(void)
  *
  * 큰 메모리를 할당하고 일부 페이지만 접근하여,
  * 실제로 접근한 페이지만 물리 메모리를 소비함을 관찰한다.
+ *
+ * 이것은 lazy allocation의 가장 큰 장점:
+ * - 프로그램이 32MB를 요청했지만 실제로 10%만 사용하면
+ *   물리 메모리는 약 3.2MB만 소비됨
+ * - eager allocation이었다면 32MB 전체를 즉시 할당해야 했음
+ * - 해시 테이블, 희소 배열 등에서 매우 효과적
  */
 static void demo_lazy_sparse(void)
 {
@@ -196,8 +243,12 @@ static void demo_lazy_sparse(void)
 /*
  * demo_lazy_timing - 할당 시간 vs 접근 시간을 비교한다.
  *
- * mmap 호출 자체는 매우 빠르지만, 모든 페이지에 실제로 접근하는 데는
- * 시간이 걸린다는 것을 보여준다.
+ * 세 가지 시간을 비교하여 lazy allocation의 비용 구조를 이해:
+ *   1. mmap 호출 시간: 가상 주소 공간 설정만 하므로 매우 빠름 (us 단위)
+ *   2. 첫 접근 시간: 각 페이지마다 page fault -> 물리 할당 -> PTE 생성
+ *      이 과정에서 page fault 처리 오버헤드가 발생
+ *   3. 재접근 시간: 이미 PTE가 설정되어 있으므로 page fault 없이 바로 접근
+ *      하드웨어 TLB에 캐시되면 더욱 빠름
  */
 static void demo_lazy_timing(void)
 {
@@ -261,8 +312,12 @@ static void demo_lazy_timing(void)
 /*
  * demo_lazy_zero_fill - 새로 할당된 페이지가 0으로 초기화됨을 확인한다.
  *
- * 보안상의 이유로 OS는 새로 할당되는 물리 페이지를 0으로 초기화한다.
- * 그렇지 않으면 이전 프로세스의 데이터가 노출될 수 있다.
+ * 보안상의 이유로 OS는 새로 할당되는 물리 페이지를 0으로 초기화해야 한다.
+ * 그렇지 않으면 이전 프로세스가 사용하던 메모리 내용(비밀번호, 개인정보 등)이
+ * 새 프로세스에 노출될 수 있는 보안 취약점이 발생한다.
+ *
+ * xv6 구현: page fault 핸들러에서 kalloc() 후 memset(mem, 0, PGSIZE) 호출
+ * Linux 구현: 시스템 전역의 "zero page"를 사용하거나, 할당 시 0으로 초기화
  */
 static void demo_lazy_zero_fill(void)
 {
