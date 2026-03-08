@@ -21,7 +21,7 @@ You will implement two locking strategies to ensure safe operation in a multithr
 ## File Structure
 
 ```
-homework/
+3_assignment/
   skeleton/          <- Working directory (code here)
     hashtable.h      - Structure definitions (no modification needed)
     hashtable.c      - Implementation file with TODOs (modify this file)

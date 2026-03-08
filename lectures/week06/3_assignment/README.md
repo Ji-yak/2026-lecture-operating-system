@@ -64,7 +64,7 @@ int  setcontext(const ucontext_t *ucp);   // Switch to new context (without savi
 ## File Structure
 
 ```
-homework/
+3_assignment/
 ├── README.md           ← This file
 ├── skeleton/
 │   ├── uthread.h       ← Thread struct, constant definitions (no modification needed)

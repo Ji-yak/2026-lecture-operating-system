@@ -328,4 +328,4 @@ Submit the following files:
 
 - xv6 textbook Ch 1: Operating System Interfaces (especially sections 1.1, 1.2, 1.3)
 - `man fork`, `man exec`, `man wait`, `man pipe`, `man dup2`
-- Lab example code: `../lab/examples/`
+- Lab example code: `../2_lab/examples/`

@@ -235,7 +235,7 @@ Find the `TODO` comments in the skeleton file and complete the code. Test code i
 ## Deliverables
 
 ```
-week5/homework/
+week05/3_assignment/
 ├── skeleton/
 │   ├── kalloc_percpu.c     <- Complete the TODOs and submit (required)
 │   └── barrier.c           <- Complete the TODOs and submit (bonus)
