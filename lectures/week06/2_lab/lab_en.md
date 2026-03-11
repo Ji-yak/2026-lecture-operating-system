@@ -110,6 +110,9 @@ if (p->state == RUNNABLE) {
 
 Or apply: `git apply scheduler_trace.patch`
 
+> **Skeleton**: `examples/skeletons/lab2_scheduler_trace.patch` (TODO comments only)
+> **Solution**: `examples/solutions/lab2_scheduler_trace.patch`
+
 ```bash
 make clean && make CPUS=1 qemu   # single CPU for readable output
 ```
@@ -130,6 +133,9 @@ sequenceDiagram
 # Exercise 3: Round-Robin Observation
 
 **Start multiple background processes in xv6 shell:**
+
+> **Skeleton**: `examples/skeletons/spin.c` (TODO: add infinite loop)
+> **Solution**: `examples/solutions/spin.c`
 
 ```
 $ spin &
@@ -180,6 +186,9 @@ sched();
 printf("[wakeup] pid=%d name=%s\n", p->pid, p->name);
 ```
 
+> **Skeleton**: `examples/skeletons/lab4_sleep_trace.patch` (TODO comments only)
+> **Solution**: `examples/solutions/lab4_sleep_trace.patch`
+
 **Test**: `echo hello | cat` in xv6 shell
 
 ```mermaid
@@ -198,6 +207,69 @@ sequenceDiagram
 ```
 
 `wakeup` only sets state to RUNNABLE — the woken process does **not** run immediately.
+
+---
+
+# How to Run
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+**1. Apply a patch**
+
+```bash
+cd xv6-riscv
+git apply path/to/patch
+# e.g. git apply ../lectures/week06/2_lab/examples/solutions/lab2_scheduler_trace.patch
+```
+
+**2. Add `spin.c` to the build**
+
+Copy `spin.c` into `user/` and edit `Makefile` — add to `UPROGS`:
+
+```makefile
+UPROGS=\
+  ...
+  $U/_spin\
+```
+
+**3. Build with single CPU**
+
+```bash
+make clean && make CPUS=1 qemu
+```
+
+</div>
+<div>
+
+**4. Run inside xv6**
+
+```
+$ spin &
+$ spin &
+$ spin &
+```
+
+**5. Exit QEMU**
+
+Press **Ctrl-A** then **X**
+
+**6. Revert patches** (restore original source)
+
+```bash
+cd xv6-riscv
+git checkout -- kernel/proc.c
+```
+
+**7. Apply multiple patches**
+
+```bash
+git apply path/to/lab2_scheduler_trace.patch
+git apply path/to/lab4_sleep_trace.patch
+```
+
+</div>
+</div>
 
 ---
 

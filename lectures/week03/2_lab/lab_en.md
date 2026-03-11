@@ -89,6 +89,71 @@ graph TD
 
 **Exercise**: Add a `printf` in `sys_fork()` and rebuild to confirm you found the right spot.
 
+<div class="mt-4 text-sm opacity-80">
+
+**Materials**: `examples/skeletons/lab2_syscall_trace.patch` (TODO template) · `examples/solutions/lab2_syscall_trace.patch` (answer)
+**Test program**: `examples/skeletons/lab2_trace_test.c` (skeleton) · `examples/solutions/lab2_trace_test.c` (answer)
+
+</div>
+
+---
+
+# Lab 2: How to Run the Trace Exercise
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+### Step 1 — Apply the kernel patch
+
+```bash
+# From the repository root:
+cd xv6-riscv
+
+# Apply the solution (or skeleton) patch
+git apply ../lectures/week03/2_lab/\
+examples/solutions/lab2_syscall_trace.patch
+```
+
+### Step 2 — Add the test program
+
+```bash
+# Copy the test program into xv6 user/
+cp ../lectures/week03/2_lab/\
+examples/solutions/lab2_trace_test.c \
+user/lab2_trace_test.c
+```
+
+</div>
+<div>
+
+### Step 3 — Edit the Makefile
+
+Open `xv6-riscv/Makefile` and find the `UPROGS` list. Add:
+
+```makefile
+UPROGS=\
+  ...
+  $U/_lab2_trace_test\
+```
+
+### Step 4 — Build and run
+
+```bash
+make clean && make qemu
+```
+
+At the xv6 shell prompt:
+```
+$ lab2_trace_test
+```
+
+You should see `[TRACE] sys_fork() called by ...` from the kernel.
+
+**Exit QEMU**: press **Ctrl-A**, then **X**.
+
+</div>
+</div>
+
 ---
 
 # Lab 3: struct proc Analysis

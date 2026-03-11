@@ -107,6 +107,9 @@ graph LR
 - `alloc=1` → allocates missing intermediate pages on demand
 - Returns pointer to the **L0 PTE** for the given virtual address
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab2_va_translate.py</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab2_va_translate.py</code></div>
+
 ---
 
 # Exercise 3: vmprint() Implementation
@@ -145,6 +148,9 @@ graph TD
 ```
 
 **Leaf vs non-leaf**: PTE with **no R/W/X** flags = pointer to next level (recurse). PTE with R/W/X = leaf (print).
+
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab3_vmprint.c</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab3_vmprint.c</code></div>
 
 ---
 

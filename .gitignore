@@ -7,17 +7,11 @@ materials/
 node_modules/
 package-lock.json
 
-# Lecture scripts (private)
-**/script_en.md
-**/script_ko.md
-
 # Assignment solutions (private)
 **/3_assignment/solution/
 
 # Quiz (private)
 quiz/
-**/0_quiz/*
-!**/0_quiz/README.md
 
 # Slidev
 .slidev/

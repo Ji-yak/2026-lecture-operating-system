@@ -42,6 +42,8 @@ graph LR
 
 # Exercise 1: sleep/wakeup
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab1_wakeup_demo.c</code></div>
+
 **`sleep(chan, lk)`** — `kernel/proc.c`
 
 ```c
@@ -71,6 +73,8 @@ graph LR
 
 - **Channel** = arbitrary address as event ID (e.g., `&pi->nread`)
 - `wakeup(chan)` is a **broadcast**: all processes sleeping on `chan` become RUNNABLE
+
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab1_wakeup_demo.c</code></div>
 
 ---
 
@@ -122,6 +126,8 @@ graph TD
 
 # Exercise 3: Producer-Consumer with Pipes
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab3_producer_consumer.c</code></div>
+
 **Pattern**: parent = producer, child = consumer
 
 ```c
@@ -158,6 +164,8 @@ sequenceDiagram
     C->>C: exit
     P->>P: wait() → reap child
 ```
+
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab3_producer_consumer.c</code></div>
 
 ---
 

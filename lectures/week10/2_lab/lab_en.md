@@ -95,6 +95,9 @@ All 4 Coffman conditions hold:
 </div>
 </div>
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: `examples/skeletons/lab1_deadlock_demo.c`</div>
+<div class="text-right text-sm text-gray-400">📁 Solution: `examples/solutions/lab1_deadlock_demo.c`</div>
+
 ---
 
 # Exercise 2: Lock Ordering Fix
@@ -141,6 +144,9 @@ void *thread_fixed(void *arg) {
 
 **Why it works**: circular wait is impossible — to hold B, you must already hold A.
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: `examples/skeletons/lab2_deadlock_fix_ordering.c`</div>
+<div class="text-right text-sm text-gray-400">📁 Solution: `examples/solutions/lab2_deadlock_fix_ordering.c`</div>
+
 ---
 
 # Exercise 3: trylock Strategy
@@ -176,6 +182,9 @@ graph TD
 ```
 
 **Key**: randomized back-off prevents **livelock** (both retrying in lockstep).
+
+<div class="text-right text-sm text-gray-400">📁 Skeleton: `examples/skeletons/lab3_deadlock_fix_trylock.c`</div>
+<div class="text-right text-sm text-gray-400">📁 Solution: `examples/solutions/lab3_deadlock_fix_trylock.c`</div>
 
 ---
 

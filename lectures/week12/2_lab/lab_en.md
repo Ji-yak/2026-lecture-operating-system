@@ -80,6 +80,9 @@ graph LR
 
 **Why it works**: Most `fork()` children call `exec()` immediately → pages are **never** written → **zero copies** needed!
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab2_cow_concept.c</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab2_cow_concept.c</code></div>
+
 ---
 
 # Exercise 2: COW Fork — Implementation
@@ -164,6 +167,9 @@ graph TD
 - `sbrk(-n)`: must `uvmdealloc()` existing pages
 - Stack guard page: must still fault fatally
 - Syscall I/O: `walkaddr()` must trigger allocation for lazy pages passed to `read()`/`write()`
+
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab3_lazy_concept.c</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab3_lazy_concept.c</code></div>
 
 ---
 

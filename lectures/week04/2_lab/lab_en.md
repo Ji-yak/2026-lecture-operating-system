@@ -69,6 +69,18 @@ sequenceDiagram
 **Experiment**: Try `./race_demo 2 1000000` vs `./race_demo 8 1000000`
 - More threads → more lost updates. Output is **non-deterministic**.
 
+<div class="text-right text-sm text-gray-400 pt-2">
+
+📁 Skeleton: `examples/skeletons/lab1_race_demo.c`
+
+</div>
+
+<div class="text-right text-sm text-gray-400">
+
+📁 Solution: `examples/solutions/lab1_race_demo.c`
+
+</div>
+
 ---
 
 # Lab 2: Mutex Protection
@@ -111,6 +123,18 @@ sequenceDiagram
 **Performance trade-off**: `time ./race_demo` (fast, wrong) vs `time ./mutex_fix` (correct, slower)
 
 > Rule: keep the critical section **as small as possible** to minimize contention.
+
+<div class="text-right text-sm text-gray-400 pt-2">
+
+📁 Skeleton: `examples/skeletons/lab2_mutex_fix.c`
+
+</div>
+
+<div class="text-right text-sm text-gray-400">
+
+📁 Solution: `examples/solutions/lab2_mutex_fix.c`
+
+</div>
 
 ---
 
@@ -170,6 +194,18 @@ graph TD
 </div>
 </div>
 
+<div class="text-right text-sm text-gray-400 pt-2">
+
+📁 Skeleton: `examples/skeletons/lab3_spinlock_impl.c`
+
+</div>
+
+<div class="text-right text-sm text-gray-400">
+
+📁 Solution: `examples/solutions/lab3_spinlock_impl.c`
+
+</div>
+
 ---
 
 # Lab 4: Deadlock Scenario
@@ -202,6 +238,18 @@ graph LR
 | **Circular wait** | A cycle in the dependency graph |
 
 **Fix**: enforce global lock ordering — always acquire `lock1` before `lock2`.
+
+<div class="text-right text-sm text-gray-400 pt-2">
+
+📁 Skeleton: `examples/skeletons/lab4_deadlock_demo.c`
+
+</div>
+
+<div class="text-right text-sm text-gray-400">
+
+📁 Solution: `examples/solutions/lab4_deadlock_demo.c`
+
+</div>
 
 ---
 

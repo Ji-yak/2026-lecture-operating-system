@@ -141,6 +141,9 @@ graph TD
 
 **Task**: Set a breakpoint at `ialloc()` in GDB and verify the inode type and device number are set correctly before `log_write()`.
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab3_fs_trace.c</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab3_fs_trace.c</code></div>
+
 ---
 
 # Exercise 4: Large File Support
@@ -170,6 +173,9 @@ graph TD
 | Triple indirect | 256³ | 16 GB |
 
 **Task**: Modify `bmap()` in `kernel/fs.c` to support **double-indirect** blocks.
+
+<div class="text-right text-sm text-gray-400">📁 Skeleton: <code>examples/skeletons/lab4_disk_layout.py</code></div>
+<div class="text-right text-sm text-gray-400">📁 Solution: <code>examples/solutions/lab4_disk_layout.py</code></div>
 
 ---
 

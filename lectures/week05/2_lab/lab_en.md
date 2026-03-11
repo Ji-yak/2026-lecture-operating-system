@@ -83,6 +83,9 @@ graph TD
 
 **Why `while`, not `if`?** — POSIX uses **Mesa semantics**: spurious wakeups are possible. Always recheck.
 
+<div class="text-right text-sm text-gray-400">📁 Skeleton: `examples/skeletons/lab1_producer_consumer.c`</div>
+<div class="text-right text-sm text-gray-400">📁 Solution: `examples/solutions/lab1_producer_consumer.c`</div>
+
 ---
 
 # Exercise 2: Bounded Buffer at Scale
@@ -101,6 +104,9 @@ graph TD
 | Replace `signal` with `broadcast` | Correct but more spurious wakeups |
 | Set `BUFFER_SIZE = 1` | Strict alternation, low concurrency |
 | Reduce consumers to 1 | Consumer bottleneck, producers wait more |
+
+<div class="text-right text-sm text-gray-400">📁 Skeleton: `examples/skeletons/lab2_bounded_buffer.c`</div>
+<div class="text-right text-sm text-gray-400">📁 Solution: `examples/solutions/lab2_bounded_buffer.c`</div>
 
 ```mermaid
 graph LR
