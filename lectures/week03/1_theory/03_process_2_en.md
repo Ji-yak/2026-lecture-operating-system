@@ -87,6 +87,27 @@ Four reasons why cooperating processes are needed:
 
 ---
 
+# Real-World IPC in Action
+
+<div class="text-left text-sm leading-7">
+
+IPC is everywhere in modern software — here are some familiar examples:
+
+| Application | IPC Mechanism | What it does |
+|---|---|---|
+| **Shell pipeline** `cat log \| grep err` | Pipe | Chains process output → input |
+| **Google Chrome** | Shared memory + IPC | Tab ↔ browser process isolation |
+| **Docker** | Named pipes, sockets | Container ↔ host communication |
+| **PostgreSQL** | Shared memory | Shared buffer cache across connections |
+| **Slack / Discord** | Sockets (WebSocket) | Real-time messaging |
+| **Android apps** | Binder (RPC) | Activity ↔ Service communication |
+
+> Every time two programs exchange data, some form of IPC is at work.
+
+</div>
+
+---
+
 # What is IPC?
 
 <div class="text-left text-base leading-8">
@@ -141,6 +162,27 @@ Advantages:
 - Processes communicate via IPC
 
 > In single-process browsers, one tab crash would bring down the entire browser.
+
+</div>
+
+---
+
+# Chrome: Each Tab = A Separate Process
+
+<div class="text-left text-base leading-8">
+
+<img src="./images/figures/chrome_ipc_p020.png" class="h-20 mx-auto mb-4" />
+
+<p class="text-xs text-gray-500 text-center mb-4">Silberschatz, Ch 3.4 — Each tab represents a separate process</p>
+
+Modern applications that adopt similar multiprocess / multi-component architectures:
+
+- **VS Code / Electron apps** — Main process + Renderer process per window (IPC via message passing)
+- **Android** — Each app runs in its own process; Services use Binder IPC
+- **Microservices** — Independent processes communicating via REST / gRPC / message queues
+- **Container orchestration (Kubernetes)** — Pods communicate via network sockets
+
+> The trend: **isolate components into separate processes** for fault tolerance and security, then connect them with IPC.
 
 </div>
 
@@ -214,6 +256,40 @@ Solution: Use a **shared buffer**
 > In practice, bounded buffers are far more common, and they give rise to synchronization issues.
 
 </div>
+
+---
+
+# Bounded Buffer in Real Life
+
+<div class="grid grid-cols-[1fr_1fr] gap-4">
+<div class="text-left text-base leading-7">
+
+Real-world producer-consumer with bounded buffers:
+
+- **Keyboard → OS** — Keystrokes go into a fixed-size input buffer; the OS consumes them
+- **Video streaming** — The network thread fills a playback buffer; the player drains it
+- **Print spooler** — Applications produce print jobs into a queue; the printer consumes them
+- **Web server** — Incoming HTTP requests queue in a bounded buffer (e.g., Nginx worker queue)
+- **Audio recording** — Microphone fills a ring buffer; the app reads and encodes it
+
+</div>
+<div class="flex items-center justify-center">
+
+```text
+  ┌───┬───┬───┬───┬───┐
+  │ A │ B │ C │   │   │
+  └───┴───┴───┴───┴───┘
+    ↑               ↑
+   out             in
+ (consumer)    (producer)
+
+ Circular array (wraps around)
+```
+
+</div>
+</div>
+
+> If the buffer is full, the producer waits. If empty, the consumer waits.
 
 ---
 
@@ -634,6 +710,27 @@ int main()
 
 ---
 
+# Shared Memory in Practice
+
+<div class="text-left text-sm leading-7">
+
+Real-world systems that rely on shared memory for high-performance IPC:
+
+| System | Usage | Why shared memory? |
+|---|---|---|
+| **PostgreSQL** | Shared buffer pool across connections | Avoids copying 8 KB pages per query |
+| **Redis** (fork persistence) | Parent ↔ child share pages via COW | Snapshot without blocking clients |
+| **Chromium** | Renderer ↔ GPU share textures | Zero-copy rendering of web pages |
+| **Video editors** | Decode ↔ Preview share frames | Real-time 4K playback at 60 fps |
+| **NGINX** | Workers share cache zone | Fast caching without duplication |
+
+> Key insight: Shared memory excels when **data volume is large** and **latency must be low**.
+> Trade-off: programmer must handle **synchronization** (Ch 6, 7).
+
+</div>
+
+---
+
 # Mach Message Passing
 
 <div class="text-left text-base leading-8">
@@ -961,6 +1058,39 @@ read(fd, buf, 6);
 </div>
 
 ---
+
+# Pipes in Real-World Systems
+
+<div class="text-left text-sm leading-7">
+
+Pipes are used far beyond simple shell commands:
+
+**DevOps / CI-CD pipelines** (the name is not a coincidence!)
+```text
+  Build → Test → Lint → Deploy   (each stage = process, data flows through "pipes")
+```
+
+**Docker** — uses named pipes (`/var/run/docker.sock`) for daemon ↔ CLI communication
+
+**Log processing** — `journalctl | grep error | wc -l` chains 3 processes
+
+**CGI Web Servers** — early web servers used pipes to communicate with CGI scripts:
+```text
+  HTTP request → Web Server ──pipe──▷ CGI Script (Python/Perl)
+                            ◁──pipe── HTML response
+```
+
+**Shell job control** — `|` creates anonymous pipes between processes:
+```bash
+# 3 processes connected by 2 pipes
+find / -name "*.log" 2>/dev/null | xargs grep "ERROR" | sort -u
+```
+
+> Pipes are the "glue" of the UNIX philosophy: *"Do one thing well, connect with pipes."*
+
+</div>
+
+---
 layout: section
 ---
 
@@ -1098,6 +1228,27 @@ public class DateClient {
 
 ---
 
+# Sockets in Everyday Applications
+
+<div class="text-left text-sm leading-7">
+
+Almost every networked application you use daily is built on sockets:
+
+| Application | Protocol | Socket usage |
+|---|---|---|
+| **ChatGPT / AI chatbots** | WebSocket (TCP) | Streaming token-by-token responses |
+| **Multiplayer games** | UDP | Low-latency position updates |
+| **Zoom / Google Meet** | UDP (WebRTC) | Real-time audio/video streaming |
+| **Web browsers** | TCP (HTTP/S) | Every page load = socket connection |
+| **SSH terminal** | TCP | Encrypted bidirectional byte stream |
+| **Database clients** | TCP / UNIX socket | `psql`, `mysql` connect via socket |
+
+> Example: When you chat with ChatGPT, your browser maintains a **WebSocket** connection to the API server, receiving tokens one by one in real time.
+
+</div>
+
+---
+
 # Limitations of Sockets
 
 <div class="text-left text-base leading-8">
@@ -1220,6 +1371,39 @@ service.remoteMethod(3, 0.14);
 - Internally, the binder framework handles marshalling and inter-process delivery
 
 </div>
+
+---
+
+# Modern RPC: gRPC
+
+<div class="grid grid-cols-[1fr_1fr] gap-4">
+<div class="text-left text-sm leading-7">
+
+**gRPC** (Google RPC) — the dominant RPC framework in modern cloud systems
+
+- Uses **Protocol Buffers** for marshalling (binary, compact, fast)
+- Transport: **HTTP/2** (multiplexing, streaming)
+- Auto-generates **stub code** in 10+ languages
+
+```protobuf
+// weather.proto
+service WeatherService {
+  rpc GetForecast (Location)
+      returns (Forecast);
+}
+```
+
+The client calls `GetForecast()` as if it were a local function — gRPC handles marshalling, network transport, and unmarshalling automatically.
+
+Used by: **Netflix, Spotify, Uber, Kubernetes, gRPC-Web**
+
+</div>
+<div class="flex items-center justify-center">
+<img src="./images/figures/grpc_architecture.png" class="h-48" />
+</div>
+</div>
+
+<p class="text-xs text-gray-500 text-center">Source: grpc.io — gRPC concept diagram</p>
 
 ---
 layout: section
