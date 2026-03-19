@@ -1,13 +1,13 @@
-// lab2_trace_test.c — Test program for sys_fork() tracing
+// lab2_trace.c — Test program for sys_fork() tracing
 //
 // After applying the sys_fork trace patch, run this program in xv6
 // to confirm that the kernel prints a trace message each time fork() is called.
 //
 // To add this program to xv6:
-//   1. Copy this file to xv6-riscv/user/lab2_trace_test.c
-//   2. Edit xv6-riscv/Makefile: add $U/_lab2_trace_test to UPROGS
+//   1. Copy this file to xv6-riscv/user/lab2_trace.c
+//   2. Edit xv6-riscv/Makefile: add $U/_lab2_trace to UPROGS
 //   3. Run: make clean && make qemu
-//   4. At the xv6 shell prompt: lab2_trace_test
+//   4. At the xv6 shell prompt: lab2_trace
 
 #include "kernel/types.h"
 #include "user/user.h"

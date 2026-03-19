@@ -34,25 +34,120 @@ graph LR
 
 ---
 
-# Lab 0 & 1: Environment & Source Structure
+# Lab 0: Environment Setup — Prerequisites
 
-<div class="grid grid-cols-2 gap-4">
+xv6-riscv requires a **RISC-V cross-compiler** and **QEMU emulator**.
+
+> **QEMU** = Quick EMUlator — a software emulator that can run an entire OS for a different CPU architecture.
+> We use it to run xv6 (built for RISC-V) on your x86/ARM laptop, without needing real RISC-V hardware.
+
+<div class="grid grid-cols-3 gap-4">
 <div>
 
-### Lab 0 — Verify Build
+### macOS (Homebrew)
 
 ```bash
-cd xv6-riscv
-make qemu
-# → "xv6 kernel is booting"
-# → shell prompt ($)
-# Exit: Ctrl-A X
+brew install qemu
+brew install riscv64-elf-gcc
 ```
 
 </div>
 <div>
 
-### Lab 1 — Key Kernel Files
+### Ubuntu / Debian
+
+```bash
+sudo apt update
+sudo apt install -y git build-essential \
+  qemu-system-misc \
+  gcc-riscv64-linux-gnu \
+  binutils-riscv64-linux-gnu
+```
+
+</div>
+<div>
+
+### Windows (WSL2)
+
+```powershell
+# PowerShell (Administrator):
+wsl --install -d Ubuntu
+```
+
+Restart, then in WSL Ubuntu terminal follow the Ubuntu instructions on the left.
+
+> Work in `~/`, **not** `/mnt/c/` (very slow)
+
+</div>
+</div>
+
+<div class="mt-4 text-sm">
+
+**Clone xv6** (all platforms):
+```bash
+git clone https://github.com/mit-pdos/xv6-riscv.git
+```
+
+**Detailed guide**: [`setup_xv6_env.md`](../week02/2_lab/setup_xv6_env.md) · **MIT 6.1810 Tools**: [pdos.csail.mit.edu/6.828/2024/tools.html](https://pdos.csail.mit.edu/6.828/2024/tools.html) · **xv6 repo**: [github.com/mit-pdos/xv6-riscv](https://github.com/mit-pdos/xv6-riscv)
+
+</div>
+
+---
+
+# Lab 0: Verify Build & Troubleshooting
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+### Build & Run
+
+```bash
+cd xv6-riscv
+make qemu
+```
+
+Expected output:
+```
+xv6 kernel is booting
+
+hart 2 starting
+hart 1 starting
+init: starting sh
+$
+```
+
+Try `ls`, `echo hello` in the xv6 shell.
+**Exit QEMU**: press **Ctrl-A**, then **X**.
+
+</div>
+<div>
+
+### Common Issues
+
+| Problem | Fix |
+|---|---|
+| `riscv64 version of GCC not found` | Set `TOOLPREFIX` manually (see below) |
+| QEMU version < 5.0 | Upgrade QEMU |
+| macOS linker errors | Use `brew install riscv64-elf-gcc` (not linux-gnu) |
+| WSL2 "KVM not available" | Harmless warning — ignore |
+
+**TOOLPREFIX** — if auto-detection fails:
+```bash
+# Check what's installed:
+ls /usr/bin/riscv64-*
+
+# Then set explicitly:
+make TOOLPREFIX=riscv64-linux-gnu- qemu
+# or on macOS:
+make TOOLPREFIX=riscv64-elf- qemu
+```
+
+</div>
+</div>
+
+---
+
+# Lab 1: xv6 Source Structure
 
 | File | Purpose |
 |---|---|
@@ -63,28 +158,29 @@ make qemu
 | `trap.c` | trap entry from user space |
 | `usys.pl` | generates user-space stubs |
 
-</div>
-</div>
-
 ---
 
 # Lab 2: System Call Tracing
 
 **Full path of `fork()` from user space to kernel:**
 
-```mermaid
-graph TD
-    U["User program<br/>calls fork()"] --> US["usys.S<br/>li a7, SYS_fork<br/>ecall"]
-    US --> TR["trap.c — usertrap()<br/>handles all user traps"]
-    TR --> SC["syscall.c — syscall()<br/>reads a7, dispatch table lookup"]
-    SC --> SP["sysproc.c — sys_fork()<br/>thin wrapper"]
-    SP --> PC["proc.c — fork()<br/>does the actual work"]
-    style U fill:#e3f2fd
-    style US fill:#fff3e0
-    style TR fill:#fce4ec
-    style SC fill:#f3e5f5
-    style SP fill:#e8f5e9
-    style PC fill:#c8e6c9
+```
+  User program: fork()
+        │
+        ▼
+  usys.S:  li a7, SYS_fork  →  ecall
+        │
+        ▼
+  trap.c:  usertrap()        ← handles all user traps
+        │
+        ▼
+  syscall.c:  syscall()      ← reads a7, dispatch table lookup
+        │
+        ▼
+  sysproc.c:  sys_fork()     ← thin wrapper
+        │
+        ▼
+  proc.c:  kfork()           ← does the actual work
 ```
 
 **Exercise**: Add a `printf` in `sys_fork()` and rebuild to confirm you found the right spot.
@@ -92,7 +188,7 @@ graph TD
 <div class="mt-4 text-sm opacity-80">
 
 **Materials**: `examples/skeletons/lab2_syscall_trace.patch` (TODO template) · `examples/solutions/lab2_syscall_trace.patch` (answer)
-**Test program**: `examples/skeletons/lab2_trace_test.c` (skeleton) · `examples/solutions/lab2_trace_test.c` (answer)
+**Test program**: `examples/skeletons/lab2_trace.c` (skeleton) · `examples/solutions/lab2_trace.c` (answer)
 
 </div>
 
@@ -119,8 +215,8 @@ examples/solutions/lab2_syscall_trace.patch
 ```bash
 # Copy the test program into xv6 user/
 cp ../lectures/week03/2_lab/\
-examples/solutions/lab2_trace_test.c \
-user/lab2_trace_test.c
+examples/solutions/lab2_trace.c \
+user/lab2_trace.c
 ```
 
 </div>
@@ -133,7 +229,7 @@ Open `xv6-riscv/Makefile` and find the `UPROGS` list. Add:
 ```makefile
 UPROGS=\
   ...
-  $U/_lab2_trace_test\
+  $U/_lab2_trace\
 ```
 
 ### Step 4 — Build and run
@@ -144,7 +240,7 @@ make clean && make qemu
 
 At the xv6 shell prompt:
 ```
-$ lab2_trace_test
+$ lab2_trace
 ```
 
 You should see `[TRACE] sys_fork() called by ...` from the kernel.
@@ -160,17 +256,21 @@ You should see `[TRACE] sys_fork() called by ...` from the kernel.
 
 **Process state machine** — defined in `kernel/proc.h`:
 
-```mermaid
-stateDiagram-v2
-    [*] --> UNUSED
-    UNUSED --> USED : allocproc()
-    USED --> RUNNABLE : fork() / userinit()
-    RUNNABLE --> RUNNING : scheduler picks it
-    RUNNING --> RUNNABLE : yield() / timer interrupt
-    RUNNING --> SLEEPING : sleep()
-    SLEEPING --> RUNNABLE : wakeup()
-    RUNNING --> ZOMBIE : exit()
-    ZOMBIE --> UNUSED : wait() reaps
+```
+                allocproc()        fork()/userinit()       scheduler
+  UNUSED ──────────▶ USED ──────────────▶ RUNNABLE ──────────▶ RUNNING
+    ▲                                        ▲                  │  │
+    │                                        │   yield()/       │  │
+    │                                        │   interrupt      │  │
+    │                                        ◀──────────────────┘  │
+    │                                        ▲                     │
+    │                              wakeup()  │       sleep()       │
+    │                                        │         │           │
+    │                                     SLEEPING ◀───┘           │
+    │                                                              │
+    │                                                    exit()    │
+    │                     wait() reaps                             │
+    └──────────────────────── ZOMBIE ◀─────────────────────────────┘
 ```
 
 **Key fields**: `state`, `pid`, `pagetable`, `trapframe`, `context`, `ofile[]`, `parent`
@@ -207,17 +307,21 @@ struct proc {
 
 # Lab 4: fork() Implementation Deep Dive
 
-```mermaid
-graph TD
-    A["1. allocproc()<br/>get new proc slot, pid, kstack, trapframe"] --> B["2. uvmcopy()<br/>copy parent's page table + memory"]
-    B --> C["3. Copy trapframe<br/>child returns from fork() too"]
-    C --> D["4. Set a0 = 0<br/>child sees fork() return 0"]
-    D --> E["5. Copy ofile[]<br/>share open file descriptors"]
-    E --> F["6. Set parent, state = RUNNABLE<br/>child is ready to run"]
-    F --> G["7. Return child PID to parent"]
-    style A fill:#e3f2fd
-    style D fill:#fff3e0
-    style F fill:#e8f5e9
+```
+  1. allocproc()         ── get new proc slot, pid, kstack, trapframe
+        │
+  2. uvmcopy()           ── copy parent's page table + memory
+        │
+  3. Copy trapframe      ── child returns from fork() too
+        │
+  4. Set a0 = 0          ── child sees fork() return 0    ★
+        │
+  5. Copy ofile[]        ── share open file descriptors
+        │
+  6. Set parent,         ── child is ready to run
+     state = RUNNABLE
+        │
+  7. Return child PID    ── to parent
 ```
 
 **Discussion questions**:
@@ -236,13 +340,10 @@ graph TD
 | **struct proc** | Kernel's complete view of a process (scheduling, memory, files) |
 | **fork()** | `uvmcopy` = heavy lifting; `trapframe->a0 = 0` = child return value |
 
-```mermaid
-graph LR
-    subgraph "What you explored today"
-        SRC["Source<br/>Structure"] --> PATH["Syscall<br/>Path"]
-        PATH --> PROC["struct proc<br/>Lifecycle"]
-        PROC --> FORK["fork()<br/>Implementation"]
-    end
+```
+  What you explored today:
+
+  Source Structure ──▶ Syscall Path ──▶ struct proc Lifecycle ──▶ fork() Implementation
 ```
 
 > Upcoming: threads, scheduling, and synchronization — all built on top of what you explored today.

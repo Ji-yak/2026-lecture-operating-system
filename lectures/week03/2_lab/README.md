@@ -15,9 +15,35 @@
 
 ---
 
-## Lab 0: Environment Check (3 min)
+## Lab 0: Environment Setup & Verification (5 min)
 
-Verify that you can build and run xv6.
+### Prerequisites
+
+xv6-riscv requires a RISC-V cross-compiler and QEMU. Install them for your platform:
+
+**macOS (Homebrew)**:
+```bash
+brew install qemu riscv64-elf-gcc
+```
+
+**Ubuntu / Debian**:
+```bash
+sudo apt update
+sudo apt install -y git build-essential qemu-system-misc \
+    gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+```
+
+**Windows**: Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) with Ubuntu (`wsl --install -d Ubuntu` in PowerShell as Administrator), then follow the Ubuntu instructions above inside the WSL terminal. **Important**: work in `~/`, not `/mnt/c/` — the latter is very slow.
+
+**Clone xv6** (all platforms):
+```bash
+git clone https://github.com/mit-pdos/xv6-riscv.git
+```
+
+> For detailed instructions, see the [Environment Setup Guide](../week02/2_lab/setup_xv6_env.md).
+> See also: [MIT 6.1810 Tools Page](https://pdos.csail.mit.edu/6.828/2024/tools.html) · [xv6-riscv GitHub](https://github.com/mit-pdos/xv6-riscv)
+
+### Build & Run
 
 ```bash
 cd xv6-riscv
@@ -25,8 +51,27 @@ make clean
 make qemu
 ```
 
-If QEMU starts and the xv6 shell prompt (`$`) appears, everything is working correctly.
+You should see:
+```
+xv6 kernel is booting
+
+hart 2 starting
+hart 1 starting
+init: starting sh
+$
+```
+
+Try `ls`, `echo hello` in the xv6 shell.
 To exit: press `Ctrl-a`, then press `x`.
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `Couldn't find a riscv64 version of GCC` | Set TOOLPREFIX manually: `make TOOLPREFIX=riscv64-linux-gnu- qemu` (Ubuntu) or `make TOOLPREFIX=riscv64-elf- qemu` (macOS) |
+| QEMU version too old | xv6 requires QEMU 5.0+. Check with `qemu-system-riscv64 --version` |
+| macOS Apple Silicon linker errors | Use `brew install riscv64-elf-gcc` (not the linux-gnu variant) |
+| WSL2 "KVM not available" warning | Harmless — xv6 uses software emulation (TCG) and does not need KVM |
 
 ---
 
