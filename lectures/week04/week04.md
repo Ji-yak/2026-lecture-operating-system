@@ -27,11 +27,11 @@
 
 ### 3rd Hour (Lab) — 50 min
 - [00:00–00:05] Lab objectives
-- [00:05–00:40] Lab — Race condition & Lock hands-on
-  - race_demo.c: Observe incorrect results from concurrent shared variable modification
-  - mutex_fix.c: Fix with Mutex protection
-  - spinlock_impl.c: Implement Spinlock (atomic operations)
-  - deadlock_demo.c: Deadlock scenario
+- [00:05–00:40] Lab — Pthreads Thread Creation, Data Parallelism, and Speedup
+  - lab1_hello_threads.c: Basic thread creation and join
+  - lab2_parallel_sum.c: Data parallel array summation
+  - lab3_arg_pitfall.c: Thread argument pitfall (`&i` vs `&tids[i]`)
+  - lab4_speedup.c: Measuring speedup with varying thread counts (Amdahl's Law)
   - Guide: `2_lab/README.md`
 - [00:40–00:50] Homework briefing: Parallel hash table (coarse → fine-grained locking)
 

@@ -1,6 +1,6 @@
 ---
 theme: default
-title: "Week 04 — Lab: Race Conditions and Locks"
+title: "Week 04 — Lab: Pthreads Basics"
 info: "Operating Systems"
 class: text-center
 drawings:
@@ -10,7 +10,7 @@ transition: slide-left
 
 # Operating Systems Lab
 
-## Week 4 — Race Conditions and Locks
+## Week 4 — Pthreads: Thread Creation, Data Parallelism, and Speedup
 
 Korea University Sejong Campus, Department of Computer Science & Software
 
@@ -22,234 +22,288 @@ Korea University Sejong Campus, Department of Computer Science & Software
 
 ```mermaid
 graph LR
-    L1["Lab 1<br/>Race Condition"] --> L2["Lab 2<br/>Mutex Fix"]
-    L2 --> L3["Lab 3<br/>Spinlock"]
-    L3 --> L4["Lab 4<br/>Deadlock"]
-    style L1 fill:#ffcdd2
-    style L2 fill:#c8e6c9
-    style L3 fill:#fff3e0
-    style L4 fill:#e3f2fd
+    L1["Lab 1<br/>Hello Threads"] --> L2["Lab 2<br/>Parallel Sum"]
+    L2 --> L3["Lab 3<br/>Arg Pitfall"]
+    L3 --> L4["Lab 4<br/>Speedup"]
+    style L1 fill:#c8e6c9
+    style L2 fill:#bbdefb
+    style L3 fill:#ffcdd2
+    style L4 fill:#fff3e0
 ```
 
 **Setup**:
 
 ```bash
 cd examples/
-gcc -Wall -pthread -o race_demo      race_demo.c
-gcc -Wall -pthread -o mutex_fix      mutex_fix.c
-gcc -Wall -pthread -o spinlock_impl  spinlock_impl.c
-gcc -Wall -pthread -o deadlock_demo  deadlock_demo.c
+gcc -Wall -pthread -o lab1_hello_threads lab1_hello_threads.c
+gcc -Wall -pthread -o lab2_parallel_sum  lab2_parallel_sum.c
+gcc -Wall -pthread -o lab3_arg_pitfall   lab3_arg_pitfall.c
+gcc -Wall -O2 -pthread -o lab4_speedup   lab4_speedup.c
 ```
 
 ---
 
-# Lab 1: Race Conditions
+# Lab 1: Hello Threads
 
-**Goal**: Observe that `counter++` is **not atomic**
+**Goal**: Create and join threads with `pthread_create` / `pthread_join`
 
 ```bash
-./race_demo          # 4 threads × 1,000,000 increments
-# Expected: 4,000,000  →  Actual: less, different every run!
+./lab1_hello_threads        # 4 threads (default)
+./lab1_hello_threads 8      # 8 threads
 ```
 
-**Why?** `counter++` compiles to **three** CPU instructions:
+**Key API** (from Ch 4.4):
 
-```mermaid
-sequenceDiagram
-    participant T1 as Thread A
-    participant Mem as counter (= 0)
-    participant T2 as Thread B
-    T1->>Mem: LOAD reg ← 0
-    T2->>Mem: LOAD reg ← 0
-    T1->>Mem: STORE reg+1 → 1
-    T2->>Mem: STORE reg+1 → 1
-    Note over Mem: Expected 2, got 1!<br/>Lost update
+```c
+pthread_create(&tid, NULL, func, arg);   // create thread
+pthread_join(tid, NULL);                 // wait for thread
 ```
 
-**Experiment**: Try `./race_demo 2 1000000` vs `./race_demo 8 1000000`
-- More threads → more lost updates. Output is **non-deterministic**.
+**Observe**: Run multiple times — the print order is **non-deterministic** (depends on OS scheduling).
 
-<div class="text-right text-sm text-gray-400 pt-2">
+**Why?** Threads are independently scheduled by the OS. There is no guaranteed execution order.
 
-📁 Skeleton: `examples/skeletons/lab1_race_demo.c`
+<div class="text-right text-sm text-gray-400 pt-4">
 
-</div>
-
-<div class="text-right text-sm text-gray-400">
-
-📁 Solution: `examples/solutions/lab1_race_demo.c`
+Skeleton: `examples/skeletons/lab1_hello_threads.c` · Solution: `examples/solutions/lab1_hello_threads.c`
 
 </div>
 
 ---
 
-# Lab 2: Mutex Protection
+# Lab 1: Thread Lifecycle
 
-**Goal**: Eliminate the race with `pthread_mutex`
+```text
+Main Thread         Thread 0       Thread 1       Thread 2       Thread 3
+    |
+    |--create()----> starts
+    |--create()-------------------> starts
+    |--create()----------------------------------> starts
+    |--create()---------------------------------------------------> starts
+    |                  |              |              |              |
+    |             (concurrent execution — order depends on scheduler)
+    |                  |              |              |              |
+    |                  |              |         printf("Hello 2!")  |
+    |             printf("Hello 0!") |              |              |
+    |                  |              |              |         printf("Hello 3!")
+    |                  |         printf("Hello 1!") |              |
+    |                  |              |              |              |
+    |--join(T0)------> done          |              |              |
+    |--join(T1)--------------------> done           |              |
+    |--join(T2)----------------------------------> done            |
+    |--join(T3)---------------------------------------------------> done
+    |
+ "All threads finished."
+```
+
+Without `pthread_join()`, the main thread could exit before child threads finish.
+
+---
+
+# Lab 2: Data Parallel Array Sum
+
+**Goal**: Split an array across threads — each computes a **partial sum**
 
 <div class="grid grid-cols-2 gap-4">
 <div>
 
-```c
-pthread_mutex_lock(&lock);
-counter++;                // critical section
-pthread_mutex_unlock(&lock);
-```
+```text
+Array: [1, 2, 3, ..., 1000]
 
-```bash
-./mutex_fix   # always prints 4,000,000 ✓
-```
-
-</div>
-<div>
-
-```mermaid
-sequenceDiagram
-    participant T1 as Thread A
-    participant L as Mutex
-    participant T2 as Thread B
-    T1->>L: lock() ✅
-    Note over T1: counter++
-    T2->>L: lock() ⏳ blocked
-    T1->>L: unlock()
-    T2->>L: lock() ✅
-    Note over T2: counter++
-    T2->>L: unlock()
-```
-
-</div>
-</div>
-
-**Performance trade-off**: `time ./race_demo` (fast, wrong) vs `time ./mutex_fix` (correct, slower)
-
-> Rule: keep the critical section **as small as possible** to minimize contention.
-
-<div class="text-right text-sm text-gray-400 pt-2">
-
-📁 Skeleton: `examples/skeletons/lab2_mutex_fix.c`
-
-</div>
-
-<div class="text-right text-sm text-gray-400">
-
-📁 Solution: `examples/solutions/lab2_mutex_fix.c`
-
-</div>
-
----
-
-# Lab 3: Spinlock (xv6 Model)
-
-**Spinlock** = busy-wait using atomic test-and-set (no sleeping)
-
-<div class="grid grid-cols-2 gap-4">
-<div>
-
-**User-space spinlock core:**
-
-```c
-// acquire
-while (__sync_lock_test_and_set(
-    &lock->locked, 1) != 0)
-    ;   // spin — burn CPU
-
-// release
-__sync_lock_release(&lock->locked);
-```
-
-**xv6 adds** (`kernel/spinlock.c`):
-
-```c
-push_off();   // disable interrupts
-while (__sync_lock_test_and_set(...))
-    ;
-__sync_synchronize(); // memory barrier
-lk->cpu = mycpu();
+Thread 0: sum [  1 ~ 250 ] = 31375
+Thread 1: sum [251 ~ 500 ] = 93875
+Thread 2: sum [501 ~ 750 ] = 156375
+Thread 3: sum [751 ~ 1000] = 218875
+                              ──────
+Total                       = 500500 ✓
 ```
 
 </div>
 <div>
-
-**Mutex vs Spinlock**:
 
 ```mermaid
 graph TD
-    subgraph "Mutex"
-        M1["Thread blocked"] --> M2["💤 Sleep<br/>no CPU used"]
-        M2 --> M3["Wake on unlock"]
-    end
-    subgraph "Spinlock"
-        S1["Thread blocked"] --> S2["🔄 Spin<br/>burns CPU!"]
-        S2 --> S3["Proceed on unlock"]
-    end
-    style M2 fill:#c8e6c9
-    style S2 fill:#ffcdd2
+    A["Array (1000 elements)"] --> C0["Thread 0<br/>partial[0]"]
+    A --> C1["Thread 1<br/>partial[1]"]
+    A --> C2["Thread 2<br/>partial[2]"]
+    A --> C3["Thread 3<br/>partial[3]"]
+    C0 --> T["Total Sum"]
+    C1 --> T
+    C2 --> T
+    C3 --> T
+    style A fill:#e3f2fd
+    style T fill:#c8e6c9
 ```
 
-| | Mutex | Spinlock |
-|---|---|---|
-| Wait | Sleep (no CPU) | Spin (burns CPU) |
-| Best for | Long sections | Very short kernel sections |
+</div>
+</div>
 
-</div>
-</div>
+This is **data parallelism** (Ch 4.2): same operation, different data subsets.
 
 <div class="text-right text-sm text-gray-400 pt-2">
 
-📁 Skeleton: `examples/skeletons/lab3_spinlock_impl.c`
-
-</div>
-
-<div class="text-right text-sm text-gray-400">
-
-📁 Solution: `examples/solutions/lab3_spinlock_impl.c`
+Skeleton: `examples/skeletons/lab2_parallel_sum.c` · Solution: `examples/solutions/lab2_parallel_sum.c`
 
 </div>
 
 ---
 
-# Lab 4: Deadlock Scenario
+# Lab 2: Key Code Pattern
 
-**Two threads, two locks** — classic circular wait:
+```c
+/* Each thread computes its own chunk — no sharing conflict */
+void *sum_array(void *arg)
+{
+    int id    = ((struct thread_arg *)arg)->id;
+    int chunk = ARRAY_SIZE / nthreads;
+    int start = id * chunk;
+    int end   = (id == nthreads - 1) ? ARRAY_SIZE : start + chunk;
 
-```mermaid
-graph LR
-    TA["Thread A<br/>holds lock1"] -->|"wants"| LB["lock2"]
-    TB["Thread B<br/>holds lock2"] -->|"wants"| LA["lock1"]
-    LA -.->|held by| TA
-    LB -.->|held by| TB
-    style TA fill:#ffcdd2
-    style TB fill:#ffcdd2
-    style LA fill:#fff3e0
-    style LB fill:#fff3e0
+    partial_sum[id] = 0;                        // separate index per thread
+    for (int i = start; i < end; i++)
+        partial_sum[id] += array[i];
+
+    return NULL;
+}
 ```
 
-```bash
-./deadlock_demo   # hangs! kill with: Ctrl-C
+**Why `partial_sum[id]` instead of a shared variable?**
+- Each thread writes to its **own index** — no conflict
+- If all threads wrote to a single `total` variable, a **race condition** would occur
+- Race conditions and synchronization are covered in Ch 6
+
+---
+
+# Lab 3: Thread Argument Pitfall
+
+**Common bug**: passing `&i` (loop variable address) to `pthread_create`
+
+<div class="grid grid-cols-2 gap-4">
+<div>
+
+**Buggy**:
+
+```c
+for (int i = 0; i < 4; i++)
+    pthread_create(&t[i], NULL,
+                   func, &i);  // all share &i!
 ```
 
-**Four Coffman conditions** (ALL must hold for deadlock):
+Output (non-deterministic):
 
-| Condition | Description |
-|---|---|
-| **Mutual exclusion** | Only one thread holds a lock at a time |
-| **Hold and wait** | Hold one lock while requesting another |
-| **No preemption** | Locks cannot be forcibly taken away |
-| **Circular wait** | A cycle in the dependency graph |
+```text
+Thread received id = 2
+Thread received id = 4
+Thread received id = 4
+Thread received id = 4
+```
 
-**Fix**: enforce global lock ordering — always acquire `lock1` before `lock2`.
+</div>
+<div>
+
+**Correct**:
+
+```c
+int tids[4];
+for (int i = 0; i < 4; i++) {
+    tids[i] = i;               // own copy
+    pthread_create(&t[i], NULL,
+                   func, &tids[i]);
+}
+```
+
+Output (always correct):
+
+```text
+Thread received id = 0
+Thread received id = 1
+Thread received id = 2
+Thread received id = 3
+```
+
+</div>
+</div>
+
+> All threads share the same `&i` address. By the time a thread reads it, `i` may have changed.
 
 <div class="text-right text-sm text-gray-400 pt-2">
 
-📁 Skeleton: `examples/skeletons/lab4_deadlock_demo.c`
+Skeleton: `examples/skeletons/lab3_arg_pitfall.c` · Solution: `examples/solutions/lab3_arg_pitfall.c`
 
 </div>
 
-<div class="text-right text-sm text-gray-400">
+---
 
-📁 Solution: `examples/solutions/lab4_deadlock_demo.c`
+# Lab 3: Why Does This Happen?
+
+```text
+Main (loop)              Thread 0             Thread 1
+    |
+  i = 0
+    |--create(&i)------> starts
+  i = 1                    |
+    |--create(&i)------------------------------> starts
+  i = 2                    |                      |
+    :                 id = *(&i)             id = *(&i)
+    :                 reads 2!               reads 2!
+    :                      |                      |
+    :               Both got id=2 instead of 0, 1!
+```
+
+**The fix**: store each value in a **separate memory location** (`tids[i]`), so each thread's pointer remains stable even as the loop advances.
+
+---
+
+# Lab 4: Speedup & Amdahl's Law
+
+**Goal**: Measure how speedup scales with thread count
+
+```bash
+./lab4_speedup
+```
+
+**Expected output** (varies by machine):
+
+| Threads | Time (sec) | Speedup |
+|---------|-----------|---------|
+| 1 | 0.12 | 1.00x |
+| 2 | 0.07 | ~1.7x |
+| 4 | 0.04 | ~3.0x |
+| 8 | 0.03 | ~4.0x |
+
+**Amdahl's Law** (Ch 4.2): speedup $\leq \frac{1}{S + \frac{1-S}{N}}$
+
+- If S = 0 (fully parallel): ideal speedup = N
+- If S = 10%: max speedup with 8 threads = **4.71x** (not 8x)
+- Serial overhead: thread creation, joining, memory bus contention
+
+<div class="text-right text-sm text-gray-400 pt-2">
+
+Skeleton: `examples/skeletons/lab4_speedup.c` · Solution: `examples/solutions/lab4_speedup.c`
 
 </div>
+
+---
+
+# Lab 4: Speedup vs Ideal
+
+<div class="text-left text-base leading-8">
+
+| Threads | Ideal (S=0) | Reality (S>0) |
+|---------|------------|---------------|
+| 1 | 1.0x | 1.0x |
+| 2 | 2.0x | ~1.7x |
+| 4 | 4.0x | ~3.0x |
+| 8 | **8.0x** | **~4.0x** |
+
+</div>
+
+**Why is actual speedup less than ideal?**
+
+1. **Thread creation/join overhead** (serial)
+2. **Memory bus contention** — threads compete for RAM bandwidth
+3. **Cache effects** — data spread across cores may cause cache misses
+4. Amdahl's Law: even a small serial fraction limits the gain
 
 ---
 
@@ -257,19 +311,24 @@ graph LR
 
 ```mermaid
 graph TD
-    RC["🔴 Race Condition<br/>unsynchronized shared state"] -->|fix with| MU["🟢 Mutex<br/>sleep-based lock"]
-    RC -->|fix with| SP["🟡 Spinlock<br/>busy-wait lock"]
-    MU --> DL["🔵 Deadlock<br/>circular wait"]
-    SP --> DL
-    DL -->|prevent with| LO["✅ Lock Ordering<br/>break circular wait"]
-    style RC fill:#ffcdd2
-    style MU fill:#c8e6c9
-    style SP fill:#fff3e0
-    style DL fill:#bbdefb
-    style LO fill:#c8e6c9
+    TC["Thread Creation<br/>pthread_create / join"] --> DP["Data Parallelism<br/>split array across threads"]
+    TC --> AP["Argument Pitfall<br/>&tids[i] not &i"]
+    DP --> SU["Speedup Measurement<br/>compare with Amdahl's Law"]
+    style TC fill:#c8e6c9
+    style DP fill:#bbdefb
+    style AP fill:#ffcdd2
+    style SU fill:#fff3e0
 ```
 
-**You will see these in xv6**:
-- `kernel/spinlock.c` — `acquire` / `release` with interrupt disable
-- `kernel/kalloc.c` — memory allocator guarded by a spinlock
-- `kernel/proc.c` — process table locked per-entry
+**Pthreads pattern used throughout**:
+
+```c
+for (int i = 0; i < N; i++) {
+    tids[i] = i;
+    pthread_create(&threads[i], NULL, func, &tids[i]);
+}
+for (int i = 0; i < N; i++)
+    pthread_join(threads[i], NULL);
+```
+
+**Next week**: Implicit threading, fork/join, OpenMP, thread cancellation, TLS (Ch 4.5–4.8)
